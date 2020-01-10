@@ -28,9 +28,7 @@ public:
         plane_x_size = tan(h_fov/2);
         float aspect_ratio = (float)resolution_x / (float)resolution_y;
         plane_y_size = plane_x_size / aspect_ratio;
-        std::cout << plane_x_size << " " << plane_y_size << std::endl;
-        //plane_x_size = 4;
-        //plane_y_size = 2;
+
     };
 
 };

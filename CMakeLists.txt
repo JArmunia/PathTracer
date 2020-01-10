@@ -1,11 +1,12 @@
 cmake_minimum_required(VERSION 3.15)
-project(Trabajo3)
+project(PathTracer)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 14)
+
 include_directories(.)
 
-add_executable(Trabajo3
-        .gitignore
+add_executable(PathTracer
+        algebra.h
         camera.h
         hitable.h
         hitable_list.h
@@ -13,12 +14,8 @@ add_executable(Trabajo3
         light.h
         main.cpp
         material.h
-        matrix.h
         plane.h
         ray.h
         sphere.h
         texture.h
-        triangle.h
-        algebra.h)
-
-set_property(TARGET Trabajo3 PROPERTY CXX_STANDARD 17)
+        triangle.h)

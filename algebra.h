@@ -43,6 +43,12 @@ class mat4 {
     const std::array<std::array<float, 4>, 4> matrix;
 
 public:
+    mat4(vec4 i, vec4 j, vec4 k, vec4 x) : matrix({i.x(), j.x(), k.x(), x.x(),
+                                                   i.y(), j.y(), k.y(), x.y(),
+                                                   i.z(), j.z(), k.z(), x.z(),
+                                                   i.w(), j.w(), k.w(), x.w()}) {}
+
+
     mat4(std::array<std::array<float, 4>, 4> m) : matrix(m) {}
 
     std::array<std::array<float, 4>, 4> mat() const {
@@ -264,7 +270,7 @@ inline vec4 matmul(const mat4 &M, const vec4 &v) {
         result[2] /= result[3];
     }
 
-    return  vec4(result[0], result[1], result[2], result[3]);
+    return vec4(result[0], result[1], result[2], result[3]);
 }
 
 /**
@@ -311,6 +317,28 @@ inline mat4 operator*(const mat4 &M1, const mat4 &M2) {
     return mat4(result);
 }
 
+/**
+ * Multiplicación matriz vector
+ * @param M
+ * @param v
+ * @return
+ */
+inline vec4 operator*(const mat4 &M, const vec4 &v) {
+    std::array<std::array<float, 4>, 4> Mat1 = M.mat();
+    std::array<float, 4> vector = v.vector;
+    std::array<float, 4> result;
+
+    for (int i = 0; i <= 3; i++) {
+        for (int j = 0; j <= 3; j++) {
+            result[i] = 0;
+            for (int k = 0; k <= 3; k++) {
+                result[i] += Mat1[i][k] * vector[k];
+            }
+        }
+    }
+    return vec4(result[0], result[1], result[2], result[3]);
+}
+
 inline std::ostream &operator<<(std::ostream &os, const mat4 &m) {
     std::string mat_string;
 
@@ -354,11 +382,13 @@ inline mat4 inverse(mat4 M) {
                                              M.mat()[2][0], M.mat()[2][1], M.mat()[2][2]};
     std::array<std::array<float, 3>, 3> Rinv = inverse3x3(R);
 
-    return mat4({Rinv[0][0], Rinv[0][1], Rinv[0][2], - (Rinv[0][0] * M.mat()[0][3] +  Rinv[0][1] * M.mat()[1][3] + Rinv[0][2] * M.mat()[2][3]),
-                 Rinv[1][0], Rinv[1][1], Rinv[1][2], - (Rinv[1][0] * M.mat()[0][3] +  Rinv[1][1] * M.mat()[1][3] + Rinv[1][2] * M.mat()[2][3]),
-                 Rinv[2][0], Rinv[2][1], Rinv[2][2],- (Rinv[2][0] * M.mat()[0][3] +  Rinv[2][1] * M.mat()[1][3] + Rinv[2][2] * M.mat()[2][3]),
+    return mat4({Rinv[0][0], Rinv[0][1], Rinv[0][2],
+                 -(Rinv[0][0] * M.mat()[0][3] + Rinv[0][1] * M.mat()[1][3] + Rinv[0][2] * M.mat()[2][3]),
+                 Rinv[1][0], Rinv[1][1], Rinv[1][2],
+                 -(Rinv[1][0] * M.mat()[0][3] + Rinv[1][1] * M.mat()[1][3] + Rinv[1][2] * M.mat()[2][3]),
+                 Rinv[2][0], Rinv[2][1], Rinv[2][2],
+                 -(Rinv[2][0] * M.mat()[0][3] + Rinv[2][1] * M.mat()[1][3] + Rinv[2][2] * M.mat()[2][3]),
                  0, 0, 0, 1});
-
 
 
 }

@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 10;
+    int rays_per_pixel = 500;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -30,31 +30,38 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
 
     hit_anything = world.hit(r, t_min, t_max, rec); // Rayo desde la camara
     if (hit_anything) {
-        ray scattered;;
+        ray scattered;
+        int event = russian_roulette(rec.mat);
 
         for (auto light: lights) {
             hit_light = shadow_ray(rec, *light, world, opt.shadow_bias);
             if (hit_light) {
                 vec4 light_direction = light->position - rec.p;
 
-                rgb += rec.mat->attenuation(rec, r.direction, light_direction,
-                                            luminance(*light, ray(rec.p, light->position - rec.p)), 1);// *
+                //rgb = rgb + rec.mat->attenuation(rec, r.direction, light_direction,
+                //                                 luminance(*light, ray(rec.p, light->position - rec.p)), 1);// *
+
+                rgb = rgb + BRDF(event, rec, r.direction, light_direction,
+                                 luminance(*light, ray(rec.p, light->position - rec.p)));
             } else {
                 // rgb += 0
             }
         }
-        if (rec.mat->scatter(r, rec, scattered)) {
-            //rgb = attenuation *
-            //      (rec.mat->notSpecular() * direct_light + color(scattered, world, lights, n + 1))
-            //      * std::max(dot(normalize(rec.normal), normalize(r.direction)), 0.f);
-
-            rgb += rec.mat->attenuation(rec, r.direction, scattered.direction,
-                                        color(scattered, world, lights, n + 1), 1);;//*
-            //std::max(dot(normalize(rec.normal), normalize(scattered.direction)), 0.f);
-
-
-            //rgb = rgb +
-            //      rec.mat->attenuation(rec, r.direction, scattered.direction) * color(scattered, world, lights, n + 1);
+        if (event != ABSORTION) {
+            if (event == DIFFUSE) {
+                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+            } else if (event == SPECULAR) {
+                vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
+                scattered = ray(rec.p, direction);
+            } else if (event == PHONG_SPECULAR) {
+                //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
+                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+            }
+//TODO: No le estoy diciendo la direccion del siguiente rayo
+            //rgb = rgb + rec.mat->attenuation(rec, r.direction, scattered.direction,
+            //                                 color(scattered, world, lights, n + 1), 1);
+            rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
+                             color(scattered, world, lights, n + 1)) ;
         }
     } else {
         //rgb += 0
@@ -63,10 +70,11 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
     return rgb;
 }
 
+//std::mt19937 generator(clock());
+//std::uniform_real_distribution<double> dis(0.0, 1.0);
 int main() {
-    std::mt19937 generator(rand()); // TODO: Poner una semilla que cambie
-    std::uniform_real_distribution<double> dis(0.0, 1.0);
-    if (true) {
+
+    if (false) {
         camera cam = camera(vec4(0, 0, 0, 1), vec4(1, 0, 0, 0),
                             vec4(0, 1, 0, 0), vec4(0, 0, -1, 0),
                             opt.resolution_x, opt.resolution_y, opt.h_fov * M_PI / 180);
@@ -76,53 +84,39 @@ int main() {
 
         std::vector<point_light *> lights;
 
-        //lights.push_back(new point_light(vec4(0., 0, -2.5, 1),
-        //                                 vec4(1, 1, 1, 0), 300));
-        lights.push_back(new point_light(vec4(0, 0., -4, 1),
+
+        lights.push_back(new point_light(vec4(0, 1., -4, 1),
                                          vec4(1, 1, 1, 0), 6000));
-        //lights.push_back(new point_light(vec4(0, 1.25, -2.5, 1),
-        //                                 vec4(1, 1, 1, 0), 300));
+
 
         hitable_list world;
 
-        //world.hit_vector.push_back(new sphere(vec4(1.5, -.5, -2.5, 1),
-        //                                      0.5,
-        //                                      new lambertian(vec4(0.9, 0.1, 0.1, 0))));
-        //,
-        //vec4(0.0, 0.0, 0.0, 0),
-        //        1)));
-        world.hit_vector.push_back(new sphere(vec4(-0, -.5, -7, 1),
-                                              1.5,
-                                              new phong(vec4(0.2, 0.2, 0.2, 0),
-                                                        vec4(0.4, 0.4, 0.4, 0),
-                                                        5)));//new phong(vec4(0.1, 0.1, 0.6, 0),
-        //world.hit_vector.push_back(new sphere(vec4(-0, .5, -7, 1),
-        //                                      0.5,
-        //                                      new specular(vec4(1, 1, 1, 0))));
+        /////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        //vec4(0.25, 0.25, 0.25, 0),
-        //10)));
-        //world.hit_vector.push_back(new sphere(vec4(-1, 1, -3, 1),
-        //                                      0.5, material(new constant_texture(vec4(1, 1, 1, 0)))));
-        //world.hit_vector.push_back(new sphere(vec4(0, -1002, -3, 1),
-        //                                      1000, new lambertian(vec4(0.5, 0.2, 0.8, 0))));
-        //world.hit_vector.push_back(new sphere(vec4(0, -0, 0, 1),
-        //                                      10, material(new constant_texture(vec4(0.5, 0.5, 0.5, 0)))));
+        world.hit_vector.push_back(new sphere(vec4(-3.5, -2.5, -8, 1), 1.5,
+                                              new phong(vec4(0.5, 0.2, 0.2, 0),
+                                                        vec4(0.1, 0.1, 0.1, 0),
+                                                        10)));
+        world.hit_vector.push_back(new sphere(vec4(3.5, -2.5, -8, 1), 1.5,
+                                              new specular(vec4(0.8, 0.8, 0.8, 0))));
+        /////////////////////////////////////////////////////////////////////////////////////////////////////
+        ///// PLANES ////////////////////////////////////////////////////////////////////////////////////////
+        /////////////////////////////////////////////////////////////////////////////////////////////////////
 
         world.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
-                                             new lambertian(vec4(0.9, 0.9, 0.9, 0)))); //Superior
+                                             new lambertian(vec4(0.4, 0.4, 0.4, 0)))); //Superior
         world.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
-                                             new lambertian(vec4(0.9, 0.9, 0.9, 0)))); //Inferior
+                                             new lambertian(vec4(0.4, 0.4, 0.4, 0)))); //Inferior
         world.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                             new lambertian(vec4(0.2, 0.4, 0.1, 0)))); //Frontal
-        //new specular(vec4(0.8, 0.8, 0.8, 0.))));
+                                             new lambertian(vec4(0.4, 0.4, 0.4, 0)))); //Frontal
         world.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
-                                             new lambertian(vec4(0.2, 0.2, 0.8, 0)))); //Derecho
+                                             new lambertian(vec4(0.1, 0.4, 0.1, 0)))); //Derecho
         world.hit_vector.push_back(new plane(vec4(-5, 0, 0, 1), vec4(1, 0, 0, 0),
-                //new specular(vec4(0.8, 0.8, 0.8, 0.))));
-                                             new lambertian(vec4(0.8, 0.2, 0.1, 0))));//Izquierdo
-        world.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
-                                             new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Frontal
+                                             new lambertian(vec4(0.4, 0.1, 0.1, 0))));//Izquierdo
+        //world.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
+        //                                     new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
 
 
 
@@ -133,7 +127,8 @@ int main() {
         vec4 point;
         std::vector<std::array<float, 3>> pixels;
         float color_resolution = 0, max_rgb;
-
+        clock_t start, end;
+        start = clock();
         for (int j = 0; j < cam.resolution_y; j++) {
             for (int i = 0; i < cam.resolution_x; i++) {
                 rgb = vec4(0, 0, 0, 0);
@@ -151,7 +146,7 @@ int main() {
 
                     int o = 0;
                     int num = 0;
-                    temp = color(r, world, lights, 0);
+                    temp = color(r, world, lights, 0) / (float) opt.rays_per_pixel;
                     rgb = rgb + temp;// (float) rays_per_pixel;
 
                 }
@@ -165,20 +160,28 @@ int main() {
             }
             std::cout << "\r" << 100 * j / cam.resolution_y << "%";
         }
+        end = clock();
+        std::cout << "\nExecution time: " << (double) (end - start) / (double) CLOCKS_PER_SEC << "s" << std::endl;
 
         //myfile.close();
         image hdr = image("P3", cam.resolution_x, cam.resolution_y, color_resolution, pixels);
         hdr.save("image_hdr.ppm");
         image eq = equalize(hdr, 1023);
         eq.save("image_eq.ppm");
-        image gamm = gamma(hdr, 1.5);
+        image gamm = equalize(gamma(hdr, 1.5), 1023);
         gamm.save("image_gamma.ppm");
         image cl = equalize(clamp(hdr, color_resolution * 0.8), 1023);
         cl.save("image_cl.ppm");
+        image i = gamma(clamp(hdr, 10000), 2);
+        i.save("image_fix.ppm");
+        image i2 = gamma(clamp(hdr, 6000), 2);
+        i2.save("image_fix2.ppm");
+        image i3 = equalize(gamma(clamp(hdr, 6000), 2),1023);
+        i3.save("image_fix3.ppm");
     } else {
         image i = image("image_hdr.ppm");
-        i = gamma(clamp(i, 10000), 2);
-        i.save("image_fix.ppm");
+        i = gamma(clamp(i, 1000), 2.2);
+        i.save("image_fix4.ppm");
     }
     return 0;
 }
