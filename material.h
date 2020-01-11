@@ -18,6 +18,8 @@ static const int SPECULAR = 3;
 static const int REFRACTION = 4;
 static const int ABSORTION = 0;
 
+class material;
+
 std::mt19937 generator(1);
 std::uniform_real_distribution<double> dis(0.0, 1.0);
 
@@ -70,6 +72,30 @@ public:
 
     material() {};
 };
+
+vec4 lobe_sampling_random_direction(hit_record rec) {
+    vec4 k = normalize(rec.normal);
+    vec4 i;
+    vec4 ran = normalize(vec4(dis(generator), dis(generator), dis(generator), 0));
+    while (dot(k, ran) == 1) {
+        ran = normalize(vec4(dis(generator), dis(generator), dis(generator), 0));
+    }
+    i = cross(k, ran);
+    vec4 j = cross(k, i);
+
+    mat4 T = mat4(i, j, k, rec.p);
+
+    float theta = std::pow(acos(dis(generator)), (1 / (rec.mat->alpha + 1)));
+
+    float phi = 2 * M_PI * dis(generator);
+
+    vec4 nextDirectionLocal = vec4(sin(theta) * cos(phi),
+                                   sin(theta) * sin(phi),
+                                   cos(theta),
+                                   0);
+
+    return T * nextDirectionLocal;
+}
 
 int russian_roulette(material *mat) {
     float rr = dis(generator);
@@ -124,6 +150,12 @@ public:
     }
 };
 
+class glass : public material {
+    glass(vec4 kr) {
+        Kr = kr;
+    }
+};
+
 
 vec4 specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     vec4 reflect = wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal));
@@ -149,14 +181,43 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
 
 }
 
+vec4 phong_specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
+    wo = normalize(wo);
+    wi = normalize(wi);
+    vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
+    vec4 Kd = record.mat->Kd;
+    vec4 Ks = record.mat->Ks;
+    float alpha = record.mat->alpha;
+    vec4 sp = (Ks * ((alpha + 2) / (2)));
+    float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
+    return (1 / max(Ks)) * luminance * ((Ks * ((alpha + 2) / (2 /** M_PI*/))) *
+             std::pow(std::abs(dot(wi, normalize(record.normal))), alpha));
+
+}
+
+vec4 phong_diffuse_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
+    wo = normalize(wo);
+    wi = normalize(wi);
+    vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
+    vec4 Kd = record.mat->Kd;
+    vec4 Ks = record.mat->Ks;
+    float alpha = record.mat->alpha;
+    vec4 sp = (Ks * ((alpha + 2) / (2)));
+    float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
+    return (1 / (max(Kd))) * luminance * Kd;
+
+}
+
 vec4 BRDF(int event, hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     switch (event) {
         case ABSORTION:
             return vec4();
         case DIFFUSE:
-            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_BRDF(record, wo, wi, luminance);
+            return phong_diffuse_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
-            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_BRDF(record, wo, wi, luminance);
+            return phong_specular_BRDF(record, wo, wi, luminance);
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
             //case REFRACTION:
