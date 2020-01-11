@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 500;
+    int rays_per_pixel = 100;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -26,7 +26,7 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
     float t_max = std::numeric_limits<float>::max(); // Max float
 
     hit_record rec_min;
-    vec4 rgb = vec4(0., 0., 0., 0);
+    vec4 rgb = vec4();
 
     hit_anything = world.hit(r, t_min, t_max, rec); // Rayo desde la camara
     if (hit_anything) {
@@ -47,6 +47,8 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
                 // rgb += 0
             }
         }
+        if (rec.mat->isLight)
+            return rec.mat->color;
         if (event != ABSORTION) {
             if (event == DIFFUSE) {
                 scattered = ray(rec.p, cosine_sampling_random_direction(rec));
@@ -54,14 +56,11 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
                 vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
                 scattered = ray(rec.p, direction);
             } else if (event == PHONG_SPECULAR) {
-                //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
                 scattered = ray(rec.p, cosine_sampling_random_direction(rec));
             }
-//TODO: No le estoy diciendo la direccion del siguiente rayo
-            //rgb = rgb + rec.mat->attenuation(rec, r.direction, scattered.direction,
-            //                                 color(scattered, world, lights, n + 1), 1);
+
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
-                             color(scattered, world, lights, n + 1)) ;
+                             color(scattered, world, lights, n + 1));
         }
     } else {
         //rgb += 0
@@ -74,7 +73,7 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
 //std::uniform_real_distribution<double> dis(0.0, 1.0);
 int main() {
 
-    if (false) {
+    if (true) {
         camera cam = camera(vec4(0, 0, 0, 1), vec4(1, 0, 0, 0),
                             vec4(0, 1, 0, 0), vec4(0, 0, -1, 0),
                             opt.resolution_x, opt.resolution_y, opt.h_fov * M_PI / 180);
@@ -85,8 +84,8 @@ int main() {
         std::vector<point_light *> lights;
 
 
-        lights.push_back(new point_light(vec4(0, 1., -4, 1),
-                                         vec4(1, 1, 1, 0), 6000));
+        //lights.push_back(new point_light(vec4(0, 1., -4, 1),
+        //                                 vec4(1, 1, 1, 0), 6000));
 
 
         hitable_list world;
@@ -100,13 +99,13 @@ int main() {
                                                         vec4(0.1, 0.1, 0.1, 0),
                                                         10)));
         world.hit_vector.push_back(new sphere(vec4(3.5, -2.5, -8, 1), 1.5,
-                                              new specular(vec4(0.8, 0.8, 0.8, 0))));
+                                              new specular(vec4(0.1, 0.1, 0.8, 0))));
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// PLANES ////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
         world.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
-                                             new lambertian(vec4(0.4, 0.4, 0.4, 0)))); //Superior
+                                             new light(vec4(1, 0.2, 0.2, 0), 6000))); //Superior
         world.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
                                              new lambertian(vec4(0.4, 0.4, 0.4, 0)))); //Inferior
         world.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
@@ -176,7 +175,7 @@ int main() {
         i.save("image_fix.ppm");
         image i2 = gamma(clamp(hdr, 6000), 2);
         i2.save("image_fix2.ppm");
-        image i3 = equalize(gamma(clamp(hdr, 6000), 2),1023);
+        image i3 = equalize(gamma(clamp(hdr, 6000), 2), 1023);
         i3.save("image_fix3.ppm");
     } else {
         image i = image("image_hdr.ppm");

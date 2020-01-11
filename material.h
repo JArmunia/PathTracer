@@ -64,15 +64,11 @@ public:
     vec4 Kr = vec4();
     float alpha = 0;
 
+    bool isLight = false;
+    float intensity = 0;
+    vec4 color = vec4();
 
     material() {};
-
-    //virtual vec4 attenuation(hit_record x, vec4 wo, vec4 wi, vec4 luminance, int event) = 0;
-//
-    //virtual int scatter(const ray &ray_in, const hit_record &rec, ray &scattered) const {
-    //    return 1;
-    //};
-
 };
 
 int russian_roulette(material *mat) {
@@ -81,6 +77,7 @@ int russian_roulette(material *mat) {
     float Ks = max(mat->Ks);
     float Ksp = max(mat->Ksp);
     float Kr = max(mat->Kr);
+
     if (rr > Kd + Ks + Ksp + Kr) {
         return ABSORTION;
     } else if (rr > Kd + Ks + Ksp) {
@@ -94,132 +91,39 @@ int russian_roulette(material *mat) {
     }
 }
 
-class lambertian : public material {
-public:
-    //vec4 Kd; // Kd
-
-    float maxKd;
-
-    //virtual inline int type() { return DIFFUSE; };
-//
-    lambertian(vec4 kd) {
-        Kd = kd;
-        maxKd = max(Kd);
+class light : public material {
+public :
+    light(vec4 color, float intensity) {
+        this->isLight = true;
+        this->color = intensity * color;
+        this->intensity = intensity;
     }
-//
-    //int scatter(const ray &ray_in, const hit_record &rec,
-    //            ray &scattered) const override {
-//
-    //    float rr = dis(generator);
-//
-    //    // Eje de coordenadas local
-//
-    //    vec4 nextDirectionGlobal = cosine_sampling_random_direction(rec);
-    //    vec4 randa = random_in_unit_sphere();
-    //    scattered = ray(rec.p, nextDirectionGlobal);
-    //    if (rr >= maxKd) {
-    //        return ABSORTION;
-    //    } else {
-    //        return DIFFUSE;
-    //    }
-    //}
-//
-    //vec4 attenuation(hit_record x, vec4 wo, vec4 wi, vec4 luminance, int event) override {
-    //    return (1 / maxKd) * luminance * Kd;// M_PI *
-    //    //std::max(dot(normalize(x.normal), normalize(wi)), 0.f);
-    //}
 };
 
-vec4 diffuse_BRDF(hit_record x, vec4 wo, vec4 wi, vec4 luminance) {
-    return (1 / max(x.mat->Kd)) * luminance * x.mat->Kd;
-}
+class lambertian : public material {
+public:
+    lambertian(vec4 kd) {
+        Kd = kd;
+    }
+};
+
 
 class phong : public material {
 public:
-
-
-
-
-    //virtual inline int type() { return PHONG; };
-
     phong(vec4 kd, vec4 ks, float a) {
         Kd = kd;
         Ks = ks;
         alpha = a;
     }
-
-    //int scatter(const ray &ray_in, const hit_record &rec,
-    //            ray &scattered) const override {
-    //    float rr = dis(generator);
-//
-    //    scattered = ray(rec.p, random_in_unit_sphere());
-    //    ray reflected = ray(rec.p, -1 * ray_in.direction - 2 * rec.normal
-    //                                                       * dot(ray_in.direction,
-    //                                                             rec.normal)); // TODO: arreglar, poner el rayo reflejado
-    //    if (rr >= maxKd + maxKs) {
-    //        return ABSORTION;
-    //    } else if (rr >= maxKd) {
-    //        vec4 direction = ray_in.direction - 2 * rec.normal * dot(ray_in.direction, rec.normal);
-    //        scattered = ray(rec.p, direction);
-    //        return SPECULAR;
-    //    } else {
-    //        scattered = ray(rec.p, random_in_unit_sphere());
-    //        return DIFFUSE;
-    //    }
-    //}
-//
-    //vec4 attenuation(hit_record x, vec4 wi, vec4 wo, vec4 luminance, int event) override {
-//
-    //    ray reflected = ray(x.p, wo);
-    //    (1 / maxKd) * luminance * diffuse_coefficient;
-    //    vec4 sp = specular_coefficient * ((shininess + 2) / (2));
-    //    float doot = std::abs(dot(reflected.direction, wi));
-    //    float pw = pow(std::abs(dot(reflected.direction, wi)), shininess);
-    //    return (1 / (maxKd + maxKs)) * luminance * ((diffuse_coefficient) +
-    //                                                ((specular_coefficient * ((shininess + 2) / (2))) *
-    //                                                 pow(std::abs(dot(reflected.direction, wi)), shininess)));
-    //}
-
-
 };
 
 class specular : public material {
 public:
-
-    virtual inline int type() { return SPECULAR; };
-
     specular(vec4 ks) {
         Ksp = ks;
     }
-
-    //int scatter(const ray &ray_in, const hit_record &rec,
-    //            ray &scattered) const override {
-//
-    //    float rr = dis(generator);
-//
-    //    vec4 direction = ray_in.direction - 2 * rec.normal * dot(ray_in.direction, rec.normal);
-    //    scattered = ray(rec.p, direction);
-    //    //std::cout << dot(normalize(ray_in.direction),
-    //    //                 normalize(rec.normal)) << std::endl;
-//
-    //    //if (rr >= maxKs) {
-    //    //    return ABSORTION;
-    //    //} else {
-    //    //    return SPECULAR;
-    //    //}
-    //}
-//
-    //vec4 attenuation(hit_record x, vec4 wo, vec4 wi, vec4 luminance, int event) override {
-    //    vec4 reflect = wo - 2 * normalize(x.normal) * dot(normalize(wo), normalize(x.normal));
-    //    //if (wi == reflect) {
-    //    //    return (1 / maxKs) * luminance *
-    //    //           Ksp;/// (M_PI);//* dot(normalize(wi), normalize(x.normal)));
-    //    //} else {
-    //    //    return vec4(0, 0, 0, 0);
-    //    //}
-    //}
-
 };
+
 
 vec4 specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     vec4 reflect = wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal));
@@ -249,7 +153,6 @@ vec4 BRDF(int event, hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     switch (event) {
         case ABSORTION:
             return vec4();
-            break;
         case DIFFUSE:
             return phong_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
