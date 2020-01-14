@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 2000;
+    int rays_per_pixel = 30;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -53,12 +53,19 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
             if (event == DIFFUSE) {
                 scattered = ray(rec.p, cosine_sampling_random_direction(rec));
             } else if (event == PHONG_SPECULAR) {
-                //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
 
-                scattered = ray(rec.p, lobe_sampling_random_direction(rec));
+                //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
             }else if (event == SPECULAR) {
                 vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
                 scattered = ray(rec.p, direction);
+            }
+            else if (event == REFRACTION) {
+                //std::cout<<"dfghjk";
+                scattered = ray(rec.p,refract(rec,r, world));
+                //std::cout << scattered.direction<< "\n";
+                //vec4 direction = r.direction - 2 * dot(r.direction, rec.normal)*rec.normal;
+                //scattered = ray(rec.p, direction);
             }
 
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
@@ -96,44 +103,35 @@ int main() {
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        world.hit_vector.push_back(new sphere(vec4(-3.5, -2.5, -8, 1), 1.5,
-                                              new phong(vec4(0.5, 0.2, 0.2, 0),
-                                                        vec4(0.1, 0.1, 0.1, 0),
-                                                        10)));
-        world.hit_vector.push_back(new sphere(vec4(3.5, -2.5, -8, 1), 1.5,
-                                              new specular(vec4(0.1, 0.1, 0.8, 0))));
+        //world.hit_vector.push_back(new sphere(vec4(-3.5, -2.5, -8, 1), 1.5,
+              //                                new specular(vec4(0.8, 0.8, 0.8, 0))));
 
-        world.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
-                                              new light(vec4(1,1,1, 0), 10000)));
+        //world.hit_vector.push_back(new sphere(vec4(-2, -2, -12, 1.7), 2,
+        //                                      new dielectric(vec4(0.8, 0.8, 0.8, 0),0.4)));
+
+        world.hit_vector.push_back(new sphere(vec4(-0, 0, -8, 0.8), 2,
+                                              new dielectric(vec4(0.8, 0.8, 0.8, 0),0.6)));
+
+        // world.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
+        //                                      new light(vec4(1,1,1, 0), 10000)));
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// PLANES ////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
         world.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
-                                             new phong(vec4(0.4, 0.4, 0.4, 0),
-                                                       vec4(0.1, 0.1, 0.1, 0),
-                                                       10))); //Superior
+                                             new light(vec4(1,1,1, 0), 10000))); //Superior
         world.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
                                              new phong(vec4(0.4, 0.4, 0.4, 0),
                                                        vec4(0., 0., 0.3, 0),
                                                        100))); //Inferior
-        world.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                             new phong(vec4(0.4, 0.4, 0.4, 0),
-                                                       vec4(0., 0, 0.3, 0),
-                                                       0))); //Frontal
+       // world.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
+       //                                      new phong(vec4(0.4, 0.4, 0.4, 0),
+        //                                               vec4(0., 0., 0.3, 0),
+        //                                               100))); //Fondo
         world.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
-                                             new phong(vec4(0.1, 0.4, 0.1, 0),
-                                                       vec4(0.3, 0.3, 0.3, 0),
-                                                       10))); //Derecho
+                                             new lambertian(vec4(0.8, 0.2, 0.2, 0)))); //Derecho
         world.hit_vector.push_back(new plane(vec4(-5, 0, 0, 1), vec4(1, 0, 0, 0),
-                                             new phong(vec4(0.4, 0.1, 0.1, 0),
-                                                     vec4(0., 0, 0, 0),
-                                                     0)));//Izquierdo
-        //world.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
-        //                                     new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
-
-
-
+                                             new lambertian(vec4(0.2, 0.8, 0.2, 0))));//Izquierdo
 
 
         vec4 rgb;
