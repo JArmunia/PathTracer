@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 100;
+    int rays_per_pixel = 30;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -53,15 +53,23 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
             if (event == DIFFUSE) {
                 scattered = ray(rec.p, cosine_sampling_random_direction(rec));
             } else if (event == PHONG_SPECULAR) {
-                //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
 
-                scattered = ray(rec.p, lobe_sampling_random_direction(rec));
+                //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
+
             } else if (event == SPECULAR) {
                 //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
                 scattered = ray(rec.p, reflected(r.direction, rec.normal));
             } else if (event == REFRACTION) {
                 vec4 direction = refracted(r.direction, rec);
                 scattered = ray(rec.p, direction);
+            }
+            else if (event == REFRACTION) {
+                //std::cout<<"dfghjk";
+                scattered = ray(rec.p,refract(rec,r, world));
+                //std::cout << scattered.direction<< "\n";
+                //vec4 direction = r.direction - 2 * dot(r.direction, rec.normal)*rec.normal;
+                //scattered = ray(rec.p, direction);
             }
 
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
