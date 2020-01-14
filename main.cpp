@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 2000;
+    int rays_per_pixel = 100;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -56,8 +56,11 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
                 //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
 
                 scattered = ray(rec.p, lobe_sampling_random_direction(rec));
-            }else if (event == SPECULAR) {
-                vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
+            } else if (event == SPECULAR) {
+                //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
+                scattered = ray(rec.p, reflected(r.direction, rec.normal));
+            } else if (event == REFRACTION) {
+                vec4 direction = refracted(r.direction, rec);
                 scattered = ray(rec.p, direction);
             }
 
@@ -96,23 +99,21 @@ int main() {
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        world.hit_vector.push_back(new sphere(vec4(-3.5, -2.5, -8, 1), 1.5,
+        world.hit_vector.push_back(new sphere(vec4(0, -2.5, -8, 1), 1.5,
                                               new phong(vec4(0.5, 0.2, 0.2, 0),
                                                         vec4(0.1, 0.1, 0.1, 0),
                                                         10)));
-        world.hit_vector.push_back(new sphere(vec4(3.5, -2.5, -8, 1), 1.5,
-                                              new specular(vec4(0.1, 0.1, 0.8, 0))));
+        world.hit_vector.push_back(new sphere(vec4(0, -2.5, -5, 1), 1.5,
+                                              new glass(vec4(0.9,0.9,0.9,0), 1.5)));
 
-        world.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
-                                              new light(vec4(1,1,1, 0), 10000)));
+        //world.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
+        //                                      new light(vec4(1, 1, 1, 0), 10000)));
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// PLANES ////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
         world.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
-                                             new phong(vec4(0.4, 0.4, 0.4, 0),
-                                                       vec4(0.1, 0.1, 0.1, 0),
-                                                       10))); //Superior
+                                             new light(vec4(1, 1, 1, 0), 10000))); //Superior
         world.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
                                              new phong(vec4(0.4, 0.4, 0.4, 0),
                                                        vec4(0., 0., 0.3, 0),
@@ -127,8 +128,8 @@ int main() {
                                                        10))); //Derecho
         world.hit_vector.push_back(new plane(vec4(-5, 0, 0, 1), vec4(1, 0, 0, 0),
                                              new phong(vec4(0.4, 0.1, 0.1, 0),
-                                                     vec4(0., 0, 0, 0),
-                                                     0)));//Izquierdo
+                                                       vec4(0., 0, 0, 0),
+                                                       0)));//Izquierdo
         //world.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
         //                                     new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
 

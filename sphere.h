@@ -6,6 +6,7 @@
 #define TRABAJO1_SPHERE_H
 
 
+#include <cmath>
 #include <iostream>
 #include "material.h"
 
@@ -38,11 +39,11 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const 
     bool intersect = false;
     vec4 p, normal;
     if (discriminant > 0) {
-        float temp = (-b + sqrt(b * b - a * c)) / a;
+        float temp = (-b + std::sqrt(b * b - a * c)) / a;
         if (t_min < temp && temp < t_max) {
             rec.t = temp;
             rec.p = r.intersection(rec.t);
-            rec.normal = (rec.p - center) / radius;
+            rec.normal = normalize((rec.p - center) / radius);
             // Para que la normal sea positiva también desde dentro de la esfera
             rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
             rec.mat = mat;
@@ -50,11 +51,11 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const 
             intersect =  true;
         }
 
-        float temp2 = (-b - sqrt(b * b - a * c)) / a;
+        float temp2 = (-b - std::sqrt(b * b - a * c)) / a;
         if (temp2 < temp && t_min < temp2 && temp2 < t_max) { // Podria petar aqui
             rec.t = temp2;
             rec.p = r.intersection(rec.t);
-            rec.normal = (rec.p - center) / radius;
+            rec.normal = normalize((rec.p - center) / radius);
             rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
             rec.mat = mat;
 

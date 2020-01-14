@@ -16,7 +16,7 @@ public:
     const vec4 normal;
     material *mat;
 
-    plane(vec4 center, vec4 normal, material *m) : center(center), normal(normal) {
+    plane(vec4 center, vec4 normal, material *m) : center(center), normal(normalize(normal)) {
         mat = m;
     };
 
@@ -42,7 +42,7 @@ bool plane::hit(const ray &r, float t_min, float t_max, hit_record &rec) const {
 
             rec.t = temp;
             rec.mat = mat;
-            rec.normal = normal;
+            rec.normal = normalize(normal);
             rec.p = r.intersection(rec.t);
             return (rec.t > 0);
         }
