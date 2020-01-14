@@ -163,50 +163,61 @@ vec4 reflected(vec4 direction, vec4 normal) {
     return direction - 2 * normal * dot(direction, normal);
 }
 
-bool refract(vec4 v, vec4 n, float ni_over_nt, vec4 &refracted) {
-    vec4 uv = normalize(v);
-    float dt = dot(uv, normalize(n));
-    float discriminat = 1. - ni_over_nt * ni_over_nt * (1 - dt * dt);
-    if (discriminat > 0) {
-        refracted = ni_over_nt * (uv - n * dt) - n * std::sqrt(discriminat);
-        return true;
-    } else {
-        return false;
-    }
+
+vec4 refract(const vec4 &I, const vec4 &N, const float &ior)
+{
+    float cosi = dot(normalize(I), normalize(N));
+    float etai = 1, etat = ior;
+    vec4 n = N;
+    if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -1 * N; }
+    float eta = etai / etat;
+    float k = 1 - eta * eta * (1 - cosi * cosi);
+    return k < 0 ? vec4() : eta * I + (eta * cosi - sqrtf(k)) * n;
 }
-
-vec4 refracted(vec4 r_in, hit_record rec) {
-
-    vec4 outward_normal;
-    vec4 reflect = reflected(r_in, rec.normal);
-    float ni_over_nt;
-    vec4 refracted;
-    float reflect_prob;
-    float cosine;
-    if (dot(r_in, rec.normal) > 0) {
-        outward_normal = -1 * rec.normal;
-        ni_over_nt = rec.mat->refraction_index;
-        cosine = ni_over_nt * dot(r_in, rec.normal);
-    } else {
-        outward_normal = rec.normal;
-        ni_over_nt = 1. / rec.mat->refraction_index;
-        cosine = -dot(r_in, rec.normal);
-    }
-    if (refract(r_in, outward_normal, ni_over_nt, refracted)) {
-        reflect_prob = 0; // TODO: Cambiar esto
-        return refracted;
-    } else {
-        std::cout << "aaaaa" << std::endl;
-        return reflect;
-    }
-    if (dis(generator) < reflect_prob) {
-        //scattered = ray(rec.p, reflected);
-    } else {
-        return refracted;
-    }
-
-    return refracted;
-}
+//bool refract(vec4 v, vec4 n, float ni_over_nt, vec4 &refracted) {
+//    vec4 uv = normalize(v);
+//    float dt = dot(uv, normalize(n));
+//    float discriminat = 1. - ni_over_nt * ni_over_nt * (1 - dt * dt);
+//    if (discriminat > 0) {
+//        refracted = ni_over_nt * (uv - n * dt) - n * std::sqrt(discriminat);
+//        return true;
+//    } else {
+//        return false;
+//    }
+//}
+//
+//vec4 refracted(vec4 r_in, hit_record rec) {
+//
+//    vec4 outward_normal;
+//    vec4 reflect = reflected(r_in, rec.normal);
+//    float ni_over_nt;
+//    vec4 refracted;
+//    float reflect_prob;
+//    float cosine;
+//    if (dot(r_in, rec.normal) > 0) {
+//        outward_normal = -1 * rec.normal;
+//        ni_over_nt = rec.mat->refraction_index;
+//        cosine = ni_over_nt * dot(r_in, rec.normal);
+//    } else {
+//        outward_normal = rec.normal;
+//        ni_over_nt = 1. / rec.mat->refraction_index;
+//        cosine = -dot(r_in, rec.normal);
+//    }
+//    if (refract(r_in, outward_normal, ni_over_nt, refracted)) {
+//        reflect_prob = 0; // TODO: Cambiar esto
+//        return refracted;
+//    } else {
+//        std::cout << "aaaaa" << std::endl;
+//        return reflect;
+//    }
+//    if (dis(generator) < reflect_prob) {
+//        //scattered = ray(rec.p, reflected);
+//    } else {
+//        return refracted;
+//    }
+//
+//    return refracted;
+//}
 
 
 vec4 specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
@@ -266,15 +277,15 @@ vec4 BRDF(int event, hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
         case ABSORTION:
             return vec4();
         case DIFFUSE:
-            //return phong_BRDF(record, wo, wi, luminance);
-            return phong_diffuse_BRDF(record, wo, wi, luminance);
+            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_diffuse_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
-            //return phong_BRDF(record, wo, wi, luminance);
-            return phong_specular_BRDF(record, wo, wi, luminance);
+            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_specular_BRDF(record, wo, wi, luminance);
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
         case REFRACTION:
-            return  luminance * vec4(1,1,1,0);
+            return  luminance;// * vec4(1,1,1,0) * 1/max(record.mat->Kr);
         default:
             std::cout << "BRDF fail" << std::endl;
             return vec4();

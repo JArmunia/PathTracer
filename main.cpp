@@ -13,7 +13,7 @@ struct options {
     int resolution_y = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 30;
+    int rays_per_pixel = 300;
     float shadow_bias = 10e-4;
 
 } opt;
@@ -61,15 +61,8 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
                 //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
                 scattered = ray(rec.p, reflected(r.direction, rec.normal));
             } else if (event == REFRACTION) {
-                vec4 direction = refracted(r.direction, rec);
+                vec4 direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
                 scattered = ray(rec.p, direction);
-            }
-            else if (event == REFRACTION) {
-                //std::cout<<"dfghjk";
-                scattered = ray(rec.p,refract(rec,r, world));
-                //std::cout << scattered.direction<< "\n";
-                //vec4 direction = r.direction - 2 * dot(r.direction, rec.normal)*rec.normal;
-                //scattered = ray(rec.p, direction);
             }
 
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
@@ -80,6 +73,27 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
     }
 
     return rgb;
+}
+
+vec4 trace(camera cam, int i, int j, hitable_list scene, std::vector<point_light *> lights) {
+    vec4 rgb;
+    vec4 point;
+    for (int rays = 0; rays < opt.rays_per_pixel; rays++) { // Antialiasing
+
+        point = vec4((-cam.plane_x_size / 2) + i * (cam.plane_x_size / cam.resolution_x) +
+                     dis(generator) * (cam.plane_x_size / cam.resolution_x),
+                     (cam.plane_y_size / 2) - j * (cam.plane_y_size / cam.resolution_y) -
+                     dis(generator) * (cam.plane_y_size / cam.resolution_y),
+                     -1,
+                     1);
+
+        ray r = ray(cam.origin, normalize(point - cam.origin));
+        hit_record rec;
+
+        rgb = rgb + color(r, scene, lights, 0);
+
+    }
+    return rgb / opt.rays_per_pixel;
 }
 
 //std::mt19937 generator(clock());
@@ -101,44 +115,44 @@ int main() {
         //                                 vec4(1, 1, 1, 0), 6000));
 
 
-        hitable_list world;
+        hitable_list scene;
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        world.hit_vector.push_back(new sphere(vec4(0, -2.5, -8, 1), 1.5,
+        scene.hit_vector.push_back(new sphere(vec4(0, 1.5, -8, 1), 1.,
                                               new phong(vec4(0.5, 0.2, 0.2, 0),
                                                         vec4(0.1, 0.1, 0.1, 0),
                                                         10)));
-        world.hit_vector.push_back(new sphere(vec4(0, -2.5, -5, 1), 1.5,
-                                              new glass(vec4(0.9,0.9,0.9,0), 1.5)));
+        scene.hit_vector.push_back(new sphere(vec4(0, 0, -6, 1), 1.,
+                                              new glass(vec4(0.9, 0.9, 0.9, 0), 1.5)));
 
-        //world.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
+        //scene.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
         //                                      new light(vec4(1, 1, 1, 0), 10000)));
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// PLANES ////////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        world.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
+        scene.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
                                              new light(vec4(1, 1, 1, 0), 10000))); //Superior
-        world.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
-                                             new phong(vec4(0.4, 0.4, 0.4, 0),
-                                                       vec4(0., 0., 0.3, 0),
+        scene.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
+                                             new phong(vec4(0.5, 0.5, 0.5, 0),
+                                                       vec4(),
                                                        100))); //Inferior
-        world.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                             new phong(vec4(0.4, 0.4, 0.4, 0),
-                                                       vec4(0., 0, 0.3, 0),
+        scene.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
+                                             new phong(vec4(0.5, 0.5, 0.5, 0),
+                                                       vec4(),
                                                        0))); //Frontal
-        world.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
+        scene.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
                                              new phong(vec4(0.1, 0.4, 0.1, 0),
-                                                       vec4(0.3, 0.3, 0.3, 0),
+                                                       vec4(),
                                                        10))); //Derecho
-        world.hit_vector.push_back(new plane(vec4(-5, 0, 0, 1), vec4(1, 0, 0, 0),
+        scene.hit_vector.push_back(new plane(vec4(-5, 0, 0, 1), vec4(1, 0, 0, 0),
                                              new phong(vec4(0.4, 0.1, 0.1, 0),
                                                        vec4(0., 0, 0, 0),
                                                        0)));//Izquierdo
-        //world.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
+        //scene.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
         //                                     new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
 
 
@@ -146,7 +160,6 @@ int main() {
 
 
         vec4 rgb;
-        vec4 temp;
         vec4 point;
         std::vector<std::array<float, 3>> pixels;
         float color_resolution = 0, max_rgb;
@@ -155,28 +168,10 @@ int main() {
         for (int j = 0; j < cam.resolution_y; j++) {
             for (int i = 0; i < cam.resolution_x; i++) {
                 rgb = vec4(0, 0, 0, 0);
-                for (int rays = 0; rays < opt.rays_per_pixel; rays++) { // Antialiasing
 
-                    point = vec4((-cam.plane_x_size / 2) + i * (cam.plane_x_size / cam.resolution_x) +
-                                 dis(generator) * (cam.plane_x_size / cam.resolution_x),
-                                 (cam.plane_y_size / 2) - j * (cam.plane_y_size / cam.resolution_y) -
-                                 dis(generator) * (cam.plane_y_size / cam.resolution_y),
-                                 -1,
-                                 1);
 
-                    ray r = ray(cam.origin, normalize(point - cam.origin));
-                    hit_record rec;
-
-                    int o = 0;
-                    int num = 0;
-                    temp = color(r, world, lights, 0) / (float) opt.rays_per_pixel;
-                    rgb = rgb + temp;// (float) rays_per_pixel;
-
-                }
-
-                max_rgb = std::max(rgb.r(), rgb.b());
-                max_rgb = std::max(max_rgb, rgb.g());
-                if (max_rgb > color_resolution) {
+                rgb = trace(cam, i, j, scene, lights);
+                if (max(rgb) > color_resolution) {
                     color_resolution = max_rgb;
                 }
                 pixels.push_back({rgb.r(), rgb.g(), rgb.b()});
