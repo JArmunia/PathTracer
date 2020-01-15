@@ -1,20 +1,23 @@
 #include <iostream>
-#include <fstream>
 #include <random>
+#include <thread>
+#include <atomic>
+#include <future>
 #include "camera.h"
 #include "sphere.h"
 #include "plane.h"
 #include "light.h"
 #include "image.h"
 
-//class material;
 struct options {
-    int resolution_x = 400;
-    int resolution_y = 300;
+    int width = 400;
+    int height = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 300;
+    int rays_per_pixel = 200;
     float shadow_bias = 10e-4;
+    float intersection_bias = 0.001;
+    int cores = std::thread::hardware_concurrency();
 
 } opt;
 
@@ -49,27 +52,46 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
         }
         if (rec.mat->isLight)
             return rec.mat->color;
+        vec4 direction;
+        vec4 point;
         if (event != ABSORTION) {
-            if (event == DIFFUSE) {
-                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
-            } else if (event == PHONG_SPECULAR) {
-                scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+            switch (event) {
+                case DIFFUSE: {
+                    direction = cosine_sampling_random_direction(rec);
+                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+                    //scattered = ray(rec.p, direction);
+                    break;
+                }
 
-                //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
+                case PHONG_SPECULAR: {
+                    //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
+                    direction = cosine_sampling_random_direction(rec);
+                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+                    //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
+                    break;
+                }
 
-            } else if (event == SPECULAR) {
-                //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
-                scattered = ray(rec.p, reflected(r.direction, rec.normal));
-            } else if (event == REFRACTION) {
-                vec4 direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
-                scattered = ray(rec.p, direction);
+                case SPECULAR: {
+                    //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
+                    //scattered = ray(rec.p, reflected(r.direction, rec.normal));
+                    direction = reflected(r.direction, rec.normal);
+                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+                    break;
+                }
+
+                case REFRACTION: {
+                    vec4 direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
+                    rec.p = rec.p - normalize(direction) * opt.intersection_bias;
+                    //scattered = ray(rec.p, direction);
+                    break;
+                }
             }
-
+            //rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+            scattered = ray(rec.p, direction);
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
                              color(scattered, world, lights, n + 1));
         }
-    } else {
-        //rgb += 0
+
     }
 
     return rgb;
@@ -103,7 +125,7 @@ int main() {
     if (true) {
         camera cam = camera(vec4(0, 0, 0, 1), vec4(1, 0, 0, 0),
                             vec4(0, 1, 0, 0), vec4(0, 0, -1, 0),
-                            opt.resolution_x, opt.resolution_y, opt.h_fov * M_PI / 180);
+                            opt.width, opt.height, opt.h_fov * M_PI / 180);
 
         // Merssene twister PRNG
 
@@ -115,7 +137,7 @@ int main() {
         //                                 vec4(1, 1, 1, 0), 6000));
 
 
-        hitable_list scene;
+        hitable_list scene(opt.intersection_bias);
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
@@ -125,8 +147,26 @@ int main() {
                                               new phong(vec4(0.5, 0.2, 0.2, 0),
                                                         vec4(0.1, 0.1, 0.1, 0),
                                                         10)));
+        scene.hit_vector.push_back(new sphere(vec4(0, -1.5, -8, 1), 1.,
+                                              new phong(vec4(0.2, 0.2, 0.5, 0),
+                                                        vec4(0.1, 0.1, 0.1, 0),
+                                                        10)));
         scene.hit_vector.push_back(new sphere(vec4(0, 0, -6, 1), 1.,
-                                              new glass(vec4(0.9, 0.9, 0.9, 0), 1.5)));
+                                              new glass(vec4(0.9, 0.9, 0.9, 0), 1.8)));
+
+        //scene.hit_vector.push_back(new sphere(vec4(1.3, -.5, -8, 1), 1.,
+        //                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+//
+        //scene.hit_vector.push_back(new sphere(vec4(2.5, -2.5, -8, 1), 1.5,
+        //                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+//
+        scene.hit_vector.push_back(new sphere(vec4(3, -2.5, -8, 1), 1.5,
+                                              new specular(vec4(0.9, 0.9, 0.9, 0))));
+//
+        scene.hit_vector.push_back(new sphere(vec4(-3, -2.5, -8, 1), 1.5,
+                                              new phong(vec4(0.5, 0.1, 0.1, 0),
+                                                        vec4(0.4, 0.4, 0.4, 0),
+                                                        20)));
 
         //scene.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
         //                                      new light(vec4(1, 1, 1, 0), 10000)));
@@ -136,12 +176,13 @@ int main() {
 
         scene.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
                                              new light(vec4(1, 1, 1, 0), 10000))); //Superior
+
         scene.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
-                                             new phong(vec4(0.5, 0.5, 0.5, 0),
+                                             new phong(vec4(0.7, 0.7, 0.7, 0),
                                                        vec4(),
                                                        100))); //Inferior
         scene.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                             new phong(vec4(0.5, 0.5, 0.5, 0),
+                                             new phong(vec4(0.7, 0.7, 0.7, 0),
                                                        vec4(),
                                                        0))); //Frontal
         scene.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
@@ -152,32 +193,61 @@ int main() {
                                              new phong(vec4(0.4, 0.1, 0.1, 0),
                                                        vec4(0., 0, 0, 0),
                                                        0)));//Izquierdo
-        //scene.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
-        //                                     new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
+        scene.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
+                                             new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
 
 
 
 
 
-        vec4 rgb;
         vec4 point;
-        std::vector<std::array<float, 3>> pixels;
-        float color_resolution = 0, max_rgb;
+        std::vector<std::array<float, 3>> pixels(opt.width * opt.height);
+        //float color_resolution = 0, max_rgb;
         clock_t start, end;
         start = clock();
-        for (int j = 0; j < cam.resolution_y; j++) {
-            for (int i = 0; i < cam.resolution_x; i++) {
-                rgb = vec4(0, 0, 0, 0);
+        //for (int j = 0; j < cam.height; j++) {
+        //    for (int i = 0; i < cam.width; i++) {
+        //        rgb = vec4(0, 0, 0, 0);
+//
+//
+        //        rgb = trace(cam, i, j, scene, lights);
+        //        if (max(rgb) > color_resolution) {
+        //            color_resolution = max_rgb;
+        //        }
+        //        pixels.push_back({rgb.r(), rgb.g(), rgb.b()});
+        //    }
+        //    std::cout << "\r" << 100 * j / cam.height << "%";
+        //}
 
+        int image_size = opt.width * opt.height;
 
-                rgb = trace(cam, i, j, scene, lights);
-                if (max(rgb) > color_resolution) {
-                    color_resolution = max_rgb;
-                }
-                pixels.push_back({rgb.r(), rgb.g(), rgb.b()});
-            }
-            std::cout << "\r" << 100 * j / cam.resolution_y << "%";
+        volatile std::atomic<std::size_t> count(0), color_resolution(0), max_rgb(0);
+        std::vector<std::future<void>> future_vector;
+        std::array<float, 3> pixel{};
+        vec4 rgb = vec4();
+        while (opt.cores--) {
+            future_vector.emplace_back(
+                    std::async([=, &scene, &count, &color_resolution, &max_rgb, &pixels]() {
+                        while (true) {
+                            int index = count++;
+                            if (index % (image_size / 100) == 0)
+                                std::cout << "\r" << 100 * index / image_size << "%";
+                            if (index >= image_size) {
+                                break;
+                            }
+                            int x = index % opt.width;
+                            int y = index / opt.width;
+                            vec4 rgb = trace(cam, x, y, scene, lights);
+                            pixels[index] = {rgb.r(), rgb.g(), rgb.b()};;
+                            if (max(rgb) > max_rgb) {
+                                max_rgb = max(rgb);
+                                color_resolution = max_rgb;
+                            }
+                        }
+                    }));
         }
+        //std::vector<std::future<void>> future_vector2= future_vector;
+        future_vector[0].wait();
         end = clock();
         std::cout << "\nExecution time: " << (double) (end - start) / (double) CLOCKS_PER_SEC << "s" << std::endl;
 
@@ -196,6 +266,7 @@ int main() {
         i2.save("image_fix2.ppm");
         image i3 = equalize(gamma(clamp(hdr, 6000), 2), 1023);
         i3.save("image_fix3.ppm");
+
     } else {
         image i = image("image_hdr.ppm");
         i = gamma(clamp(i, 1000), 2.2);

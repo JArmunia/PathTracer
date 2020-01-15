@@ -45,7 +45,7 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const 
             rec.p = r.intersection(rec.t);
             rec.normal = normalize((rec.p - center) / radius);
             // Para que la normal sea positiva también desde dentro de la esfera
-            rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
+            //rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
             rec.mat = mat;
             //std::cout << mat << std::endl;
             intersect =  true;
@@ -56,7 +56,7 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const 
             rec.t = temp2;
             rec.p = r.intersection(rec.t);
             rec.normal = normalize((rec.p - center) / radius);
-            rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
+            //rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
             rec.mat = mat;
 
             intersect =  true;

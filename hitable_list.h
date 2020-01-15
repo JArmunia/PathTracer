@@ -11,9 +11,11 @@
 class hitable_list : public hitable {
 public:
     std::vector<hitable *> hit_vector;
-
-    hitable_list() = default;;
-
+    float intersection_bias = 0;
+    hitable_list() = default;
+    hitable_list(float i_bias){
+        intersection_bias = i_bias;
+    }
     bool hit(const ray &r, float t_min, float t_max, hit_record &rec) const override;
 };
 
@@ -27,6 +29,7 @@ bool hitable_list::hit(const ray &r, float t_min, float t_max, hit_record &rec) 
         if (hittable_object->hit(r, t_min, closest_so_far, temp_rec)) {
             hit_anything = true;
             rec = temp_rec;
+            rec.p = rec.p ;
             closest_so_far = temp_rec.t;
         }
     }

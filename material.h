@@ -164,15 +164,45 @@ vec4 reflected(vec4 direction, vec4 normal) {
 }
 
 
-vec4 refract(const vec4 &I, const vec4 &N, const float &ior)
-{
+vec4 refract(const vec4 &I, const vec4 &N, const float &ior) {
     float cosi = dot(normalize(I), normalize(N));
     float etai = 1, etat = ior;
     vec4 n = N;
-    if (cosi < 0) { cosi = -cosi; } else { std::swap(etai, etat); n= -1 * N; }
+    if (cosi < 0) { cosi = -cosi; }
+    else {
+        std::swap(etai, etat);
+        n = -1 * N;
+    }
     float eta = etai / etat;
     float k = 1 - eta * eta * (1 - cosi * cosi);
-    return k < 0 ? vec4() : eta * I + (eta * cosi - sqrtf(k)) * n;
+    //return k < 0 ? vec4() : eta * I + (eta * cosi - std::sqrt(k)) * n;
+    return eta * I + (eta * cosi - std::sqrt(k)) * n;
+}
+
+vec4 refracted(const vec4 wo, const hit_record rec) {
+    vec4 woG = normalize(wo);
+    vec4 normalG = normalize(rec.normal);
+    float ior = rec.mat->refraction_index;
+    if (dot(woG, normalG) < 0) {
+        normalG = -1 * normalG;
+        ior = 1 / ior;
+    }
+    float sin_theta1 = std::sqrt(1 - std::pow(dot(woG, normalG), 2));
+
+    float theta2 = std::asin(ior * sin_theta1);
+    vec4 k = normalG;
+    vec4 j = cross(woG, k);
+    vec4 i = cross(j, k);
+
+    mat4 T = mat4(i, j, k, rec.p);
+
+
+    vec4 refracted = vec4(sin(theta2) * cos(M_PI),
+                          sin(theta2) * sin(M_PI),
+                          cos(theta2),
+                          0);
+
+    return T * refracted;
 }
 //bool refract(vec4 v, vec4 n, float ni_over_nt, vec4 &refracted) {
 //    vec4 uv = normalize(v);
@@ -224,10 +254,26 @@ vec4 specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     //vec4 reflect = wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal));
     vec4 reflect = reflected(normalize(wo), normalize(record.normal));
     if (wi == reflect) {
-        return (1 / max(record.mat->Ksp)) * luminance * record.mat->Ksp; // TODO: Falta el seno
+        return (1 / max(record.mat->Ksp)) * luminance * record.mat->Ksp;
+        //*std::max(1 - std::pow(std::abs(dot(normalize(wo), normalize(record.normal))), 2),0.);
+        //modulus(cross(normalize(wo), normalize(record.normal))); // TODO: Falta el seno
     } else {
         return vec4(0, 0, 0, 0);
     }
+}
+
+vec4 refraction_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
+    //vec4 reflect = wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal));
+    vec4 refracted = refract(wo, record.normal, record.mat->refraction_index);
+    //if (refracted == vec4())
+    //    refracted = reflected(wo, record.normal);
+    if (wi == refracted) {
+        return (1 / max(record.mat->Kr)) * luminance * record.mat->Kr;
+    } else {
+        //std::cout <<"Init: " << refract << " | " << wi << "end" << std::endl;
+        return vec4(0.9, 0, 0, 0);
+    }
+
 }
 
 vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
@@ -241,7 +287,7 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
     return (1 / (max(Kd) + max(Ks))) * luminance * (Kd +
                                                     ((Ks * ((alpha + 2) / (2))) *
-                                                     std::pow(std::abs(dot(wi, normalize(record.normal))), alpha)));
+                                                     std::pow(std::abs(dot(wi, wo)), alpha)));
 
 }
 
@@ -262,17 +308,17 @@ vec4 phong_specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
 vec4 phong_diffuse_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     wo = normalize(wo);
     wi = normalize(wi);
-    vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
+    //vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
     vec4 Kd = record.mat->Kd;
-    vec4 Ks = record.mat->Ks;
-    float alpha = record.mat->alpha;
-    vec4 sp = (Ks * ((alpha + 2) / (2)));
-    float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
+    //vec4 Ks = record.mat->Ks;
+    //float alpha = record.mat->alpha;
+    //vec4 sp = (Ks * ((alpha + 2) / (2)));
+    //float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
     return (1 / (max(Kd))) * luminance * Kd;
 
 }
 
-vec4 BRDF(int event, hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
+vec4 BRDF(int event, const hit_record record, const vec4 wo, const vec4 wi, const vec4 luminance) {
     switch (event) {
         case ABSORTION:
             return vec4();
@@ -285,7 +331,7 @@ vec4 BRDF(int event, hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
         case REFRACTION:
-            return  luminance;// * vec4(1,1,1,0) * 1/max(record.mat->Kr);
+            return refraction_BRDF(record, wo, wi, luminance);// * vec4(1,1,1,0) * 1/max(record.mat->Kr);
         default:
             std::cout << "BRDF fail" << std::endl;
             return vec4();
