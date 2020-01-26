@@ -9,15 +9,17 @@
 #include "light.h"
 #include "image.h"
 
+
 struct options {
     int width = 400;
     int height = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 200;
+    int rays_per_pixel = 2000;
     float shadow_bias = 10e-4;
-    float intersection_bias = 0.001;
-    int cores = std::thread::hardware_concurrency();
+    float intersection_bias = 10e-4;
+    int cores = 8;//std::thread::hardware_concurrency();
+
 
 } opt;
 
@@ -41,7 +43,7 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
             if (hit_light) {
                 vec4 light_direction = light->position - rec.p;
 
-                //rgb = rgb + rec.mat->attenuation(rec, r.direction, light_direction,
+                //rgb = rgb + rec.mat->attenuation(rec, r.next_direction, light_direction,
                 //                                 luminance(*light, ray(rec.p, light->position - rec.p)), 1);// *
 
                 rgb = rgb + BRDF(event, rec, r.direction, light_direction,
@@ -52,42 +54,43 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
         }
         if (rec.mat->isLight)
             return rec.mat->color;
-        vec4 direction;
+        vec4 next_direction;
         vec4 point;
         if (event != ABSORTION) {
             switch (event) {
                 case DIFFUSE: {
-                    direction = cosine_sampling_random_direction(rec);
-                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
-                    //scattered = ray(rec.p, direction);
+                    next_direction = cosine_sampling_random_direction(rec);
+                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    //scattered = ray(rec.p, next_direction);
                     break;
                 }
 
                 case PHONG_SPECULAR: {
                     //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
-                    direction = cosine_sampling_random_direction(rec);
-                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+                    //next_direction = cosine_sampling_random_direction(rec);
+                    next_direction = lobe_sampling_random_direction(rec, reflected(r.direction, rec.normal));
+                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
                     break;
                 }
 
                 case SPECULAR: {
-                    //vec4 direction = r.direction - 2 * rec.normal * dot(r.direction, rec.normal);
-                    //scattered = ray(rec.p, reflected(r.direction, rec.normal));
-                    direction = reflected(r.direction, rec.normal);
-                    rec.p = rec.p + normalize(direction) * opt.intersection_bias;
+                    //vec4 next_direction = r.next_direction - 2 * rec.normal * dot(r.next_direction, rec.normal);
+                    //scattered = ray(rec.p, reflected(r.next_direction, rec.normal));
+                    next_direction = reflected(r.direction, rec.normal);
+                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     break;
                 }
 
                 case REFRACTION: {
-                    vec4 direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
-                    rec.p = rec.p - normalize(direction) * opt.intersection_bias;
-                    //scattered = ray(rec.p, direction);
+                    next_direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
+                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    //scattered = ray(rec.p, next_direction);
                     break;
                 }
             }
-            //rec.p = rec.p + normalize(direction) * opt.intersection_bias;
-            scattered = ray(rec.p, direction);
+            //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+            scattered = ray(rec.p, next_direction);
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
                              color(scattered, world, lights, n + 1));
         }
@@ -121,7 +124,6 @@ vec4 trace(camera cam, int i, int j, hitable_list scene, std::vector<point_light
 //std::mt19937 generator(clock());
 //std::uniform_real_distribution<double> dis(0.0, 1.0);
 int main() {
-
     if (true) {
         camera cam = camera(vec4(0, 0, 0, 1), vec4(1, 0, 0, 0),
                             vec4(0, 1, 0, 0), vec4(0, 0, -1, 0),
@@ -165,8 +167,8 @@ int main() {
 //
         scene.hit_vector.push_back(new sphere(vec4(-3, -2.5, -8, 1), 1.5,
                                               new phong(vec4(0.5, 0.1, 0.1, 0),
-                                                        vec4(0.4, 0.4, 0.4, 0),
-                                                        20)));
+                                                        vec4(0.2, 0.2, 0.2, 0),
+                                                        15)));
 
         //scene.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
         //                                      new light(vec4(1, 1, 1, 0), 10000)));

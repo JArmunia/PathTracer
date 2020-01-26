@@ -74,8 +74,9 @@ public:
     material() {};
 };
 
-vec4 lobe_sampling_random_direction(hit_record rec) {
-    vec4 k = normalize(rec.normal);
+vec4 lobe_sampling_random_direction(hit_record rec, vec4 reflected) {
+    vec4 wr = normalize(reflected);
+    vec4 k = wr;
     vec4 i;
     vec4 ran = normalize(vec4(dis(generator), dis(generator), dis(generator), 0));
     while (dot(k, ran) == 1) {
@@ -85,17 +86,20 @@ vec4 lobe_sampling_random_direction(hit_record rec) {
     vec4 j = cross(k, i);
 
     mat4 T = mat4(i, j, k, rec.p);
+    vec4 nextDirectionLocal;
+    do {
+        float theta = std::pow(acos(dis(generator)), (1 / (rec.mat->alpha + 1)));
 
-    float theta = std::pow(acos(dis(generator)), (1 / (rec.mat->alpha + 1)));
+        float phi = 2 * M_PI * dis(generator);
 
-    float phi = 2 * M_PI * dis(generator);
-
-    vec4 nextDirectionLocal = vec4(sin(theta) * cos(phi),
-                                   sin(theta) * sin(phi),
-                                   cos(theta),
-                                   0);
-
+        nextDirectionLocal = vec4(sin(theta) * cos(phi),
+                                  sin(theta) * sin(phi),
+                                  cos(theta),
+                                  0);
+    } while (dot(inverse(T) * normalize(rec.normal) , nextDirectionLocal) < 0);
     return T * nextDirectionLocal;
+
+
 }
 
 int russian_roulette(material *mat) {
@@ -267,11 +271,12 @@ vec4 refraction_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     vec4 refracted = refract(wo, record.normal, record.mat->refraction_index);
     //if (refracted == vec4())
     //    refracted = reflected(wo, record.normal);
-    if (wi == refracted) {
+    if (normalize(wi) == normalize(refracted)) {
+        //std::cout <<"Init: " << refracted << " | " << wi << "end" << std::endl;
         return (1 / max(record.mat->Kr)) * luminance * record.mat->Kr;
     } else {
-        //std::cout <<"Init: " << refract << " | " << wi << "end" << std::endl;
-        return vec4(0.9, 0, 0, 0);
+        //std::cout <<"Init: " << refracted << " | " << wi << "end" << std::endl;
+        return vec4(0., 0, 0, 0);
     }
 
 }
@@ -294,14 +299,17 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
 vec4 phong_specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     wo = normalize(wo);
     wi = normalize(wi);
-    vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
+    vec4 wr = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
     vec4 Kd = record.mat->Kd;
     vec4 Ks = record.mat->Ks;
     float alpha = record.mat->alpha;
     vec4 sp = (Ks * ((alpha + 2) / (2)));
+    float cos_wi = dot(wi, normalize(record.normal));
+    float sin_wi = std::sqrt(1 - std::pow(cos_wi, 2));
     float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
-    return (1 / max(Ks)) * luminance * ((Ks * ((alpha + 2) / (2 * M_PI))) *
-                                        std::pow(std::abs(dot(wi, normalize(record.normal))), alpha));
+    return (1 / max(Ks)) * luminance * Ks * (alpha + 2) * cos_wi * sin_wi /
+           ((alpha + 1) * std::sqrt(1 - std::pow(dot(wi, wo), 2)));
+    //std::abs(dot(wi,wr)) * std::sqrt());
 
 }
 
@@ -323,11 +331,11 @@ vec4 BRDF(int event, const hit_record record, const vec4 wo, const vec4 wi, cons
         case ABSORTION:
             return vec4();
         case DIFFUSE:
-            return phong_BRDF(record, wo, wi, luminance);
-            //return phong_diffuse_BRDF(record, wo, wi, luminance);
+            //return phong_BRDF(record, wo, wi, luminance);
+            return phong_diffuse_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
-            return phong_BRDF(record, wo, wi, luminance);
-            //return phong_specular_BRDF(record, wo, wi, luminance);
+            //return phong_BRDF(record, wo, wi, luminance);
+            return phong_specular_BRDF(record, wo, wi, luminance);
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
         case REFRACTION:
