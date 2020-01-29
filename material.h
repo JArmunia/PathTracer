@@ -11,12 +11,13 @@
 #include <ctime>
 //#include "texture.h"
 #include "hitable.h"
+#include "image.h"
 
+static const int ABSORTION = 0;
 static const int DIFFUSE = 1;
 static const int PHONG_SPECULAR = 2;
 static const int SPECULAR = 3;
 static const int REFRACTION = 4;
-static const int ABSORTION = 0;
 
 class material;
 
@@ -67,12 +68,16 @@ public:
     float alpha = 0;
     float refraction_index = 0;
 
+
+
     bool isLight = false;
     float intensity = 0;
     vec4 color = vec4();
 
-    material() {};
+    material() = default;;
+    virtual vec4 albedo(hit_record rec) = 0;
 };
+
 
 vec4 lobe_sampling_random_direction(hit_record rec, vec4 reflected) {
     vec4 wr = normalize(reflected);
@@ -96,7 +101,7 @@ vec4 lobe_sampling_random_direction(hit_record rec, vec4 reflected) {
                                   sin(theta) * sin(phi),
                                   cos(theta),
                                   0);
-    } while (dot(inverse(T) * normalize(rec.normal) , nextDirectionLocal) < 0);
+    } while (dot(inverse(T) * normalize(rec.normal), nextDirectionLocal) < 0);
     return T * nextDirectionLocal;
 
 
@@ -129,14 +134,17 @@ public :
         this->color = intensity * color;
         this->intensity = intensity;
     }
-};
-
-class lambertian : public material {
-public:
-    lambertian(vec4 kd) {
-        Kd = kd;
+    vec4 albedo(hit_record rec) override {
+        return vec4();
     }
 };
+
+//class lambertian : public material {
+//public:
+//    lambertian(vec4 kd) {
+//        Kd = kd;
+//    }
+//};
 
 
 class phong : public material {
@@ -146,12 +154,20 @@ public:
         Ks = ks;
         alpha = a;
     }
+
+    vec4 albedo(hit_record rec) override {
+        return Kd;
+    }
 };
 
 class specular : public material {
 public:
     specular(vec4 ks) {
         Ksp = ks;
+    }
+
+    vec4 albedo(hit_record rec) override {
+        return vec4();
     }
 };
 
@@ -160,6 +176,10 @@ public:
     glass(vec4 kr, float rf) {
         Kr = kr;
         refraction_index = rf;
+    }
+
+    vec4 albedo(hit_record rec) override {
+        return vec4();
     }
 };
 
@@ -208,50 +228,6 @@ vec4 refracted(const vec4 wo, const hit_record rec) {
 
     return T * refracted;
 }
-//bool refract(vec4 v, vec4 n, float ni_over_nt, vec4 &refracted) {
-//    vec4 uv = normalize(v);
-//    float dt = dot(uv, normalize(n));
-//    float discriminat = 1. - ni_over_nt * ni_over_nt * (1 - dt * dt);
-//    if (discriminat > 0) {
-//        refracted = ni_over_nt * (uv - n * dt) - n * std::sqrt(discriminat);
-//        return true;
-//    } else {
-//        return false;
-//    }
-//}
-//
-//vec4 refracted(vec4 r_in, hit_record rec) {
-//
-//    vec4 outward_normal;
-//    vec4 reflect = reflected(r_in, rec.normal);
-//    float ni_over_nt;
-//    vec4 refracted;
-//    float reflect_prob;
-//    float cosine;
-//    if (dot(r_in, rec.normal) > 0) {
-//        outward_normal = -1 * rec.normal;
-//        ni_over_nt = rec.mat->refraction_index;
-//        cosine = ni_over_nt * dot(r_in, rec.normal);
-//    } else {
-//        outward_normal = rec.normal;
-//        ni_over_nt = 1. / rec.mat->refraction_index;
-//        cosine = -dot(r_in, rec.normal);
-//    }
-//    if (refract(r_in, outward_normal, ni_over_nt, refracted)) {
-//        reflect_prob = 0; // TODO: Cambiar esto
-//        return refracted;
-//    } else {
-//        std::cout << "aaaaa" << std::endl;
-//        return reflect;
-//    }
-//    if (dis(generator) < reflect_prob) {
-//        //scattered = ray(rec.p, reflected);
-//    } else {
-//        return refracted;
-//    }
-//
-//    return refracted;
-//}
 
 
 vec4 specular_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
@@ -285,7 +261,7 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     wo = normalize(wo);
     wi = normalize(wi);
     vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
-    vec4 Kd = record.mat->Kd;
+    vec4 Kd = record.mat->albedo(record);
     vec4 Ks = record.mat->Ks;
     float alpha = record.mat->alpha;
     vec4 sp = (Ks * ((alpha + 2) / (2)));
@@ -317,7 +293,7 @@ vec4 phong_diffuse_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     wo = normalize(wo);
     wi = normalize(wi);
     //vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
-    vec4 Kd = record.mat->Kd;
+    vec4 Kd = record.mat->albedo(record);
     //vec4 Ks = record.mat->Ks;
     //float alpha = record.mat->alpha;
     //vec4 sp = (Ks * ((alpha + 2) / (2)));
@@ -326,16 +302,42 @@ vec4 phong_diffuse_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
 
 }
 
+class texture : public material {
+public:
+    image img;
+    int nx, ny;
+
+    texture(vec4 kd, image i) : img(i) {
+        img = i;
+        Kd = kd;
+        nx = i.resolution[0];
+        ny = i.resolution[1];
+    }
+
+    vec4 albedo(hit_record rec) override{
+        int i = rec.u * nx;
+        int j = (1 - rec.v) * ny - 0.001;
+        if (i < 0) i = 0;
+        if (j < 0) j = 0;
+        if (i > nx - 1) i = nx - 1;
+        if (j > ny - 1) j = ny - 1;
+        float r = int(img.pixels[i + nx * j][0]) / 255.0;
+        float g = int(img.pixels[i + nx * j][1]) / 255.0;
+        float b = int(img.pixels[i + nx * j][2]) / 255.0;
+        return vec4(r, g, b, 0) * max(Kd);
+    }
+};
+
 vec4 BRDF(int event, const hit_record record, const vec4 wo, const vec4 wi, const vec4 luminance) {
     switch (event) {
         case ABSORTION:
             return vec4();
         case DIFFUSE:
-            //return phong_BRDF(record, wo, wi, luminance);
-            return phong_diffuse_BRDF(record, wo, wi, luminance);
+            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_diffuse_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
-            //return phong_BRDF(record, wo, wi, luminance);
-            return phong_specular_BRDF(record, wo, wi, luminance);
+            return phong_BRDF(record, wo, wi, luminance);
+            //return phong_specular_BRDF(record, wo, wi, luminance);
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
         case REFRACTION:

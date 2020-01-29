@@ -20,14 +20,14 @@ public:
         mat = m;
     };
 
-    bool hit(const ray &r, float t_min, float t_max, hit_record &rec) const override;
+    bool hit(const ray &r, float t_min, float t_max, hit_record &rec)  override;
 };
 
 std::ostream &operator<<(std::ostream &os, const plane &p) {
     return os << "Center: " << p.center << "\nNormal: " << p.normal;
 }
 
-bool plane::hit(const ray &r, float t_min, float t_max, hit_record &rec) const {
+bool plane::hit(const ray &r, float t_min, float t_max, hit_record &rec)  {
     /*TODO comprobar que hacemos bien este hit, he negado la normal para que podamos tener
      * que apunta hacia nosotros pero no me termina de convencer */
     vec4 n = -1 * normalize(normal);

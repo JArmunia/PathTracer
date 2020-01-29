@@ -23,14 +23,21 @@ public:
         mat = m;
     };
 
-    bool hit(const ray &r, float t_min, float t_max, hit_record &rec) const override;
+    bool hit(const ray &r, float t_min, float t_max, hit_record &rec) override;
+
+    void get_sphere_uv(const vec4 p, float& u, float& v){
+        float phi = atan2(p.z()-center.z(), p.x()-center.x());
+        float theta = asin(p.y() - center.y());
+        u = 1- (phi + M_PI) / (2 * M_PI);
+        v = (theta + M_PI/2) / M_PI;
+    }
 };
 
 std::ostream &operator<<(std::ostream &os, const sphere &s) {
     return os << "Center: " << s.center << "\nRadius: " << s.radius;
 }
 
-bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const {
+bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) {
     vec4 oc = r.origin - center;
     float a = dot(r.direction, r.direction);
     float b = dot(oc, r.direction);
@@ -61,6 +68,10 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) const 
 
             intersect =  true;
         }
+        get_sphere_uv(rec.p, rec.u, rec.v);
+
+
+
 
     }
 

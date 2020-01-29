@@ -8,6 +8,7 @@
 #include "plane.h"
 #include "light.h"
 #include "image.h"
+#include "rectangle.h"
 
 
 struct options {
@@ -15,7 +16,7 @@ struct options {
     int height = 300;
     float h_fov = 120;
 
-    int rays_per_pixel = 2000;
+    int rays_per_pixel = 100;
     float shadow_bias = 10e-4;
     float intersection_bias = 10e-4;
     int cores = 8;//std::thread::hardware_concurrency();
@@ -23,7 +24,7 @@ struct options {
 
 } opt;
 
-vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &lights, int n) {
+vec4 color(ray r, hitable_list world, const std::vector<point_light *> &lights, int n) {
     hit_record rec, rec1;
     bool hit_anything;
     bool hit_light;
@@ -60,16 +61,16 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
             switch (event) {
                 case DIFFUSE: {
                     next_direction = cosine_sampling_random_direction(rec);
-                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     //scattered = ray(rec.p, next_direction);
                     break;
                 }
 
                 case PHONG_SPECULAR: {
                     //scattered = ray(rec.p, cosine_sampling_random_direction(rec));
-                    //next_direction = cosine_sampling_random_direction(rec);
-                    next_direction = lobe_sampling_random_direction(rec, reflected(r.direction, rec.normal));
-                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    next_direction = cosine_sampling_random_direction(rec);
+                    //next_direction = lobe_sampling_random_direction(rec, reflected(r.direction, rec.normal));
+                    //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     //scattered = ray(rec.p, lobe_sampling_random_direction(rec));
                     break;
                 }
@@ -78,18 +79,18 @@ vec4 color(ray r, const hitable_list &world, const std::vector<point_light *> &l
                     //vec4 next_direction = r.next_direction - 2 * rec.normal * dot(r.next_direction, rec.normal);
                     //scattered = ray(rec.p, reflected(r.next_direction, rec.normal));
                     next_direction = reflected(r.direction, rec.normal);
-                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     break;
                 }
 
                 case REFRACTION: {
                     next_direction = refract(r.direction, rec.normal, rec.mat->refraction_index);
-                    rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+                    //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
                     //scattered = ray(rec.p, next_direction);
                     break;
                 }
             }
-            //rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
+            rec.p = rec.p + normalize(next_direction) * opt.intersection_bias;
             scattered = ray(rec.p, next_direction);
             rgb = rgb + BRDF(event, rec, r.direction, scattered.direction,
                              color(scattered, world, lights, n + 1));
@@ -139,36 +140,39 @@ int main() {
         //                                 vec4(1, 1, 1, 0), 6000));
 
 
-        hitable_list scene(opt.intersection_bias);
+        hitable_list scene;
 
         /////////////////////////////////////////////////////////////////////////////////////////////////////
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-        scene.hit_vector.push_back(new sphere(vec4(0, 1.5, -8, 1), 1.,
-                                              new phong(vec4(0.5, 0.2, 0.2, 0),
-                                                        vec4(0.1, 0.1, 0.1, 0),
-                                                        10)));
-        scene.hit_vector.push_back(new sphere(vec4(0, -1.5, -8, 1), 1.,
-                                              new phong(vec4(0.2, 0.2, 0.5, 0),
-                                                        vec4(0.1, 0.1, 0.1, 0),
-                                                        10)));
-        scene.hit_vector.push_back(new sphere(vec4(0, 0, -6, 1), 1.,
-                                              new glass(vec4(0.9, 0.9, 0.9, 0), 1.8)));
-
-        //scene.hit_vector.push_back(new sphere(vec4(1.3, -.5, -8, 1), 1.,
+        //scene.hit_vector.push_back(new sphere(vec4(0, 1.5, -8, 1), 1.,
+        //                                      new phong(vec4(0.5, 0.2, 0.2, 0),
+        //                                                vec4(0.1, 0.1, 0.1, 0),
+        //                                                10)));
+        //scene.hit_vector.push_back(new sphere(vec4(0, -1.5, -8, 1), 1.,
+        //                                      new phong(vec4(0.2, 0.2, 0.5, 0),
+        //                                                vec4(0.1, 0.1, 0.1, 0),
+        //                                                10)));
+        //scene.hit_vector.push_back(new sphere(vec4(0, 0, -6, 1), 1.,
+        //                                      new glass(vec4(0.9, 0.9, 0.9, 0), 1.8)));
+//
+        ////scene.hit_vector.push_back(new sphere(vec4(1.3, -.5, -8, 1), 1.,
+        ////                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+////
+        ////scene.hit_vector.push_back(new sphere(vec4(2.5, -2.5, -8, 1), 1.5,
+        ////                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+////
+        //scene.hit_vector.push_back(new sphere(vec4(3, -2.5, -8, 1), 1.5,
         //                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
-//
-        //scene.hit_vector.push_back(new sphere(vec4(2.5, -2.5, -8, 1), 1.5,
-        //                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
-//
-        scene.hit_vector.push_back(new sphere(vec4(3, -2.5, -8, 1), 1.5,
-                                              new specular(vec4(0.9, 0.9, 0.9, 0))));
-//
+////
         scene.hit_vector.push_back(new sphere(vec4(-3, -2.5, -8, 1), 1.5,
-                                              new phong(vec4(0.5, 0.1, 0.1, 0),
+                                              new phong(vec4(0.1, 0.1, 0.5, 0),
                                                         vec4(0.2, 0.2, 0.2, 0),
                                                         15)));
+
+        scene.hit_vector.push_back(new sphere(vec4(2.5, -2, -4, 1), 1.5,
+                                              new texture(vec4(0.9,0,0,0), image("pixar_ball.ppm"))));
 
         //scene.hit_vector.push_back(new sphere(vec4(0, 5, -6, 1), 1.5,
         //                                      new light(vec4(1, 1, 1, 0), 10000)));
@@ -184,9 +188,10 @@ int main() {
                                                        vec4(),
                                                        100))); //Inferior
         scene.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                             new phong(vec4(0.7, 0.7, 0.7, 0),
-                                                       vec4(),
-                                                       0))); //Frontal
+                //new phong(vec4(0.7, 0.7, 0.7, 0),
+                //          vec4(),
+                //          0))); //Frontal
+                                             new specular(vec4(.9, .9, .9, 0))));
         scene.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
                                              new phong(vec4(0.1, 0.4, 0.1, 0),
                                                        vec4(),
@@ -196,7 +201,26 @@ int main() {
                                                        vec4(0., 0, 0, 0),
                                                        0)));//Izquierdo
         scene.hit_vector.push_back(new plane(vec4(0, 0, 1, 1), vec4(0, 0, -1, 0),
-                                             new lambertian(vec4(0.8, 0.4, 0.1, 0)))); //Trasera
+                                             new phong(vec4(0.8, 0.4, 0.1, 0),
+                                                       vec4(0., 0, 0, 0),
+                                                       0))); //Trasera
+
+        scene.hit_vector.push_back(new box(vec4(-2, -5, -5, 1), vec4(-1, -1, -3, 1),
+                                           new glass(
+                                                   vec4(0.9, .9, .9, 0), 1.8
+                                           )));
+        //new phong(vec4(0.4, 0.1, 0.1, 0),
+        //          vec4(0., 0, 0, 0),
+        //          0)));
+
+        //scene.hit_vector.push_back(new box(vec4(-1.9,-4,-4,1), vec4(-1.1,-2,-3.5,1),
+        //        //new glass(
+        //        //vec4(0.9,.9,.9, 0), 1.8
+        //        //)));
+        //                                   new phong(vec4(0.4, 0.1, 0.1, 0),
+        //                                             vec4(0., 0, 0, 0),
+        //                                             0)));
+
 
 
 
