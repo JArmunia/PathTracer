@@ -17,4 +17,4 @@ add_executable(PathTracer
         plane.h
         ray.h
         sphere.h
-        triangle.h rectangle.h transformations.h)
+        triangle.h rectangle.h)

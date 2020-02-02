@@ -12,35 +12,32 @@
 
 class sphere : public hitable {
 
-public:
+
     const vec4 center;
+public:
     const float radius;
     const float radius2; // radius squared
     material *mat;
 
+    mat4 basis = identity();
+
     sphere(vec4 center, float radius, material *m) : center(center), radius(radius),
-                                                    radius2(radius * radius) {
+                                                     radius2(radius * radius) {
+        center = vec4(0,0,0,1);
+        basis = basis * translation(center);
         mat = m;
     };
 
-    bool hit(const ray &r, float t_min, float t_max, hit_record &rec) override;
+    bool hit(const ray &loc_ray, float t_min, float t_max, hit_record &rec) override;
 
-    void get_sphere_uv(const vec4 p, float& u, float& v){
-        float phi = atan2(p.z()-center.z(), p.x()-center.x());
-        float theta = asin(p.y() - center.y());
-        u = 1- (phi + M_PI) / (2 * M_PI);
-        v = (theta + M_PI/2) / M_PI;
-    }
 };
 
-std::ostream &operator<<(std::ostream &os, const sphere &s) {
-    return os << "Center: " << s.center << "\nRadius: " << s.radius;
-}
-
 bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) {
-    vec4 oc = r.origin - center;
-    float a = dot(r.direction, r.direction);
-    float b = dot(oc, r.direction);
+    mat4 inv = inverse(basis);
+    ray loc_ray(inv * r.origin, inv * r.direction);
+    vec4 oc = loc_ray.origin - center;
+    float a = dot(loc_ray.direction, loc_ray.direction);
+    float b = dot(oc, loc_ray.direction);
     float c = dot(oc, oc) - radius * radius;
     float discriminant = b * b - a * c;
     bool intersect = false;
@@ -49,28 +46,28 @@ bool sphere::hit(const ray &r, float t_min, float t_max, hit_record &rec) {
         float temp = (-b + std::sqrt(b * b - a * c)) / a;
         if (t_min < temp && temp < t_max) {
             rec.t = temp;
-            rec.p = r.intersection(rec.t);
-            rec.normal = normalize((rec.p - center) / radius);
+            rec.p = basis * loc_ray.intersection(rec.t);
+            rec.normal = normalize((rec.p - basis * center ));
             // Para que la normal sea positiva también desde dentro de la esfera
-            //rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
             rec.mat = mat;
-            //std::cout << mat << std::endl;
-            intersect =  true;
+            intersect = true;
         }
 
         float temp2 = (-b - std::sqrt(b * b - a * c)) / a;
         if (temp2 < temp && t_min < temp2 && temp2 < t_max) { // Podria petar aqui
             rec.t = temp2;
-            rec.p = r.intersection(rec.t);
-            rec.normal = normalize((rec.p - center) / radius);
-            //rec.normal = -sgn(dot(rec.normal, r.direction)) * rec.normal;
+            rec.p = basis * loc_ray.intersection(rec.t);
+            rec.normal = normalize((rec.p - basis * center));
             rec.mat = mat;
 
-            intersect =  true;
+            intersect = true;
         }
-        get_sphere_uv(rec.p, rec.u, rec.v);
+        vec4 dir = normalize((inv * rec.p) - vec4(0, 0, 0, 1));
+        float phi = atan2(dir.x(), dir.z());
+        float theta = asin(dir.y());
 
-
+        rec.v = 0.5 + (theta / M_PI);
+        rec.u = (phi + M_PI) / (M_PI * 2);
 
 
     }

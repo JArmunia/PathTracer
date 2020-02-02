@@ -69,12 +69,12 @@ public:
     float refraction_index = 0;
 
 
-
     bool isLight = false;
     float intensity = 0;
     vec4 color = vec4();
 
     material() = default;;
+
     virtual vec4 albedo(hit_record rec) = 0;
 };
 
@@ -134,6 +134,7 @@ public :
         this->color = intensity * color;
         this->intensity = intensity;
     }
+
     vec4 albedo(hit_record rec) override {
         return vec4();
     }
@@ -184,6 +185,8 @@ public:
 };
 
 vec4 reflected(vec4 direction, vec4 normal) {
+    direction = normalize(direction);
+    normal = normalize(normal);
     return direction - 2 * normal * dot(direction, normal);
 }
 
@@ -268,7 +271,7 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
     return (1 / (max(Kd) + max(Ks))) * luminance * (Kd +
                                                     ((Ks * ((alpha + 2) / (2))) *
-                                                     std::pow(std::abs(dot(wi, wo)), alpha)));
+                                                     std::pow(std::abs(dot(wi, reflect)), alpha)));
 
 }
 
@@ -306,6 +309,16 @@ class texture : public material {
 public:
     image img;
     int nx, ny;
+    float rep_x = 1, rep_y = 1;
+
+    texture(vec4 kd, image i, float repetitions_x, float repetitions_y) : img(i) {
+        img = i;
+        Kd = kd;
+        nx = i.resolution[0];
+        ny = i.resolution[1];
+        rep_x = repetitions_x;
+        rep_y = repetitions_y;
+    }
 
     texture(vec4 kd, image i) : img(i) {
         img = i;
@@ -314,17 +327,29 @@ public:
         ny = i.resolution[1];
     }
 
-    vec4 albedo(hit_record rec) override{
-        int i = rec.u * nx;
-        int j = (1 - rec.v) * ny - 0.001;
-        if (i < 0) i = 0;
-        if (j < 0) j = 0;
-        if (i > nx - 1) i = nx - 1;
-        if (j > ny - 1) j = ny - 1;
-        float r = int(img.pixels[i + nx * j][0]) / 255.0;
-        float g = int(img.pixels[i + nx * j][1]) / 255.0;
-        float b = int(img.pixels[i + nx * j][2]) / 255.0;
-        return vec4(r, g, b, 0) * max(Kd);
+    vec4 albedo(hit_record rec) override {
+        //int i = rec.u * (float) nx;
+        //int j = (1 - rec.v) * (float) ny - 0.001;
+
+        int n = rec.u / (1/rep_x);
+        float resto_u = rec.u - n * (1/rep_x);
+        n = rec.v / (1/rep_y);
+        float resto_v = rec.v - n * (1/rep_y);
+
+        int i = resto_u/ (1/rep_x) * (float) nx;
+        int j = (1 - resto_v / (1/rep_y)) * (float) ny - 0.001;
+        //if (i < 0) i = 0;
+        //if (j < 0) j = 0;
+        //if (i > nx - 1) i = nx - 1;
+        //if (j > ny - 1) j = ny - 1;
+        if (!(i < 0) && !(j < 0) && !(i >= nx) && !(j >= ny)) {
+            float r = img.pixels[i + nx * j][0] / img.color_resolution;
+            float g = img.pixels[i + nx * j][1] / img.color_resolution;
+            float b = img.pixels[i + nx * j][2] / img.color_resolution;
+            return vec4(r, g, b, 0) * max(Kd);
+        } else {
+            return vec4(0.9, 0.00, 0.00, 0.00);
+        }
     }
 };
 
@@ -334,10 +359,8 @@ vec4 BRDF(int event, const hit_record record, const vec4 wo, const vec4 wi, cons
             return vec4();
         case DIFFUSE:
             return phong_BRDF(record, wo, wi, luminance);
-            //return phong_diffuse_BRDF(record, wo, wi, luminance);
         case PHONG_SPECULAR:
             return phong_BRDF(record, wo, wi, luminance);
-            //return phong_specular_BRDF(record, wo, wi, luminance);
         case SPECULAR:
             return specular_BRDF(record, wo, wi, luminance);
         case REFRACTION:

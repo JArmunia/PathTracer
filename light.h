@@ -19,8 +19,8 @@ public:
     point_light(vec4 p, vec4 c, float i) : position(p), color(c), intensity(i) {};
 };
 
-vec4 luminance(point_light light, ray r) {
-    return light.color * light.intensity / pow(modulus(light.position - r.origin), 2);
+vec4 luminance(point_light light, vec4 point) {
+    return light.color * light.intensity / pow(modulus(light.position - point), 2);
 }
 
 /**

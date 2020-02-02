@@ -40,13 +40,15 @@ public:
 };
 
 class mat4 {
-    const std::array<std::array<float, 4>, 4> matrix;
+    std::array<std::array<float, 4>, 4> matrix;
 
 public:
     mat4(vec4 i, vec4 j, vec4 k, vec4 x) : matrix({i.x(), j.x(), k.x(), x.x(),
                                                    i.y(), j.y(), k.y(), x.y(),
                                                    i.z(), j.z(), k.z(), x.z(),
                                                    i.w(), j.w(), k.w(), x.w()}) {}
+
+    mat4();
 
 
     mat4(std::array<std::array<float, 4>, 4> m) : matrix(m) {}
@@ -166,7 +168,7 @@ std::ostream &operator<<(std::ostream &os, const vec4 &v) {
 }
 
 inline bool operator==(const vec4 &v1, const vec4 &v2) {
-    float epsilon = 10e-5;
+    float epsilon = 10e-6;
     return v1.x() - v2.x() < epsilon &&
            v1.y() - v2.y() < epsilon &&
            v1.z() - v2.z() < epsilon &&
@@ -208,6 +210,13 @@ inline mat4 translation(float x, float y, float z) {
     return mat4({1, 0, 0, x,
                  0, 1, 0, y,
                  0, 0, 1, z,
+                 0, 0, 0, 1});
+}
+
+inline mat4 translation(vec4 vec) {
+    return mat4({1, 0, 0, vec.x(),
+                 0, 1, 0, vec.y(),
+                 0, 0, 1, vec.z(),
                  0, 0, 0, 1});
 }
 

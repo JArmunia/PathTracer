@@ -41,6 +41,7 @@ bool xy_rect::hit(const ray &r, float t_min, float t_max, hit_record &rec)  {
     rec.mat = mat;
     rec.p = r.intersection(t);
     rec.normal = vec4(0, 0, 1, 0);
+
     return true;
 }
 
@@ -53,8 +54,8 @@ public:
 
     xz_rect() = default;
 
-    xz_rect(float x0, float x1, float y0, float y1, float k, material *mat) :
-            x0(x0), x1(x1), z0(y0), z1(y1), k(k), mat(mat) {};
+    xz_rect(float x0, float x1, float z0, float z1, float k, material *mat) :
+            x0(x0), x1(x1), z0(z0), z1(z1), k(k), mat(mat) {};
 
 
     bool hit(const ray &r, float t_min, float t_max, hit_record &rec)  override;
@@ -76,6 +77,7 @@ bool xz_rect::hit(const ray &r, float t_min, float t_max, hit_record &rec)  {
     rec.mat = mat;
     rec.p = r.intersection(t);
     rec.normal = vec4(0, 1, 0, 0);
+
     return true;
 }
 
