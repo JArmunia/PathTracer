@@ -276,6 +276,7 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
     vec4 Kd = record.mat->albedo(record);
     vec4 Ks = record.mat->Ks;
+    //std::cout << Kd << std::endl;
     float alpha = record.mat->alpha;
     vec4 sp = (Ks * ((alpha + 2) / (2)));
     float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
@@ -322,18 +323,16 @@ public:
     float rep_x = 1, rep_y = 1;
 
 
-    texture( image i, float repetitions_x, float repetitions_y) : img(i) {
-        img = i;
-        Kd = vec4(0.9,0.9,0.9,0);
+    texture(image i, float repetitions_x, float repetitions_y) : img(i) {
+        Kd = vec4(0.9, 0.9, 0.9, 0);
         nx = i.resolution[0];
         ny = i.resolution[1];
         rep_x = repetitions_x;
         rep_y = repetitions_y;
     }
 
-    texture( image i, float repetitions_x, float repetitions_y,  float intensity) : img(i) {
-        img = i;
-        Kd = vec4(0.9,0.9,0.9,0);
+    texture(image i, float repetitions_x, float repetitions_y, float intensity) : img(i) {
+        Kd = vec4(0.9, 0.9, 0.9, 0);
         nx = i.resolution[0];
         ny = i.resolution[1];
         rep_x = repetitions_x;
@@ -342,53 +341,91 @@ public:
         this->intensity = intensity;
     }
 
-    texture( image i) : img(i) {
-        img = i;
-        Kd = vec4(0.9,0.9,0.9,0);
+    texture(image i) : img(i) {
+        Kd = vec4(0.9, 0.9, 0.9, 0);
         nx = i.resolution[0];
         ny = i.resolution[1];
     }
 
-    texture( image i, float intensity) : img(i) {
-        img = i;
-        Kd = vec4(0.9,0.9,0.9,0);
+    texture(image i, float intensity) : img(i) {
+        Kd = vec4(0.9, 0.9, 0.9, 0);
         nx = i.resolution[0];
         ny = i.resolution[1];
         this->isLight = true;
         this->intensity = intensity;
+    }
+
+
+    vec4 getLight(hit_record rec) override {
+        return albedo(rec);
     }
 
     vec4 albedo(hit_record rec) override {
-        //int i = rec.u * (float) nx;
-        //int j = (1 - rec.v) * (float) ny - 0.001;
+        //int i1 = rec.u * (float) nx;
+        //int j1 = (1 - rec.v) * (float) ny - 0.001;
 
         int n = rec.u / (1 / rep_x);
         float resto_u = rec.u - n * (1 / rep_x);
         n = rec.v / (1 / rep_y);
         float resto_v = rec.v - n * (1 / rep_y);
 
-        int i = resto_u / (1 / rep_x) * (float) nx;
-        int j = (1 - resto_v / (1 / rep_y)) * (float) ny - 0.001;
+        float i_real = resto_u / (1 / rep_x) * (float) nx;
+        int i1 = std::floor(i_real);
+        int i2 = i1 + 1;
+        float variacion_i = i_real - (float) i1;
 
-        if (!(i < 0) && !(j < 0) && !(i >= nx) && !(j >= ny)) {
-            float r = img.pixels[i + nx * j][0] / img.color_resolution;
-            float g = img.pixels[i + nx * j][1] / img.color_resolution;
-            float b = img.pixels[i + nx * j][2] / img.color_resolution;
+        float j_real = 1 - resto_v / (1 / rep_y) * (float) ny - 0.001;
+        int j1 = std::floor(j_real);
+        int j2 = j1 + 1;
+        float variacion_j = j_real - (float) j1;
 
-            if (r <= 0.001) r = 0.001;
-            if (g <= 0.001) g = 0.001;
-            if (b <= 0.001) b = 0.001;
+
+        float cr = img.color_resolution;
+
+
+        if (!(i1 < 0) && !(j1 < 0) && !(i2 >= nx) && !(j2 >= ny)) {
+            float r = img.pixels[i1 + nx * j1][0] / img.color_resolution;
+            float g = img.pixels[i1 + nx * j1][1] / img.color_resolution;
+            float b = img.pixels[i1 + nx * j1][2] / img.color_resolution;
+
+            std::array<float, 3> p1 = img.pixels[i1 + nx * j1];
+            std::array<float, 3> p2 = img.pixels[i2 + nx * j1];
+            std::array<float, 3> p3 = img.pixels[i1 + nx * j2];
+            std::array<float, 3> p4 = img.pixels[i2 + nx * j2];
+            vec4 p11(p1[0] / cr, p1[1] / cr, p1[2] / cr, 0);
+            vec4 p12(p3[0] / cr, p3[1] / cr, p3[2] / cr, 0);
+            vec4 p21(p2[0] / cr, p2[1] / cr, p2[2] / cr, 0);
+            vec4 p22(p4[0] / cr, p4[1] / cr, p4[2] / cr, 0);
+
+            vec4 color_total = p11 * (1 - variacion_i) * (1 - variacion_j) +
+                               p12 * (1 - variacion_i) * (variacion_j) +
+                               p21 * (variacion_i) * (1 - variacion_j) +
+                               p22 * (variacion_i) * variacion_j;
+
+
+
+            //if (r <= 0.001) r = 0.001;
+            //if (g <= 0.001) g = 0.001;
+            //if (b <= 0.001) b = 0.001;
+            if (color_total.r() <= 0.001) color_total = color_total + vec4(0.01, 0, 0, 0);
+            if (color_total.g() <= 0.001) color_total = color_total + vec4(0, 0.01, 0, 0);
+            if (color_total.b() <= 0.001) color_total = color_total + vec4(0, 0, 0.01, 0);
+
             if (rec.mat->isLight) {
+                //return vec4(r, g, b, 0) * intensity;
                 return vec4(r, g, b, 0) * intensity;
             } else {
+                //return vec4(r, g, b, 0) * max(Kd);
                 return vec4(r, g, b, 0) * max(Kd);
             }
         } else {
-            return vec4(0.9, 0.00, 0.00, 0.00);
+            std::cout << "!i1 < 0: " << !(i1 < 0)
+                      << " !j1 < 0: " << !(j1 < 0)
+                      << " !i2 >= 0: " << !(i2 >= nx)
+                      << " !j2 >= 0: " << !(j2 >= ny)
+                      << std::endl;
+            return vec4(0.91, 0.01, 0.01, 0.00);
         }
-    }
-    vec4 getLight(hit_record rec) override {
-        return albedo(rec);
     }
 };
 

@@ -13,14 +13,14 @@
 
 struct options {
     int width = 450;
-    int height = 500;
+    int height = 540;
     float h_fov = 120;
 
     int rays_per_pixel = 20;
     float shadow_bias = 10e-4;
     float intersection_bias = 10e-4;
     int cores = std::thread::hardware_concurrency();
-    int scene = 6;
+    int scene = 7;
 
 
 } opt;
@@ -150,7 +150,7 @@ int main() {
         vec4 blue = vec4(.085, .085, .85, 0);
 
         sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
-                              new texture(image("pixar_ball.ppm"), 2.f, 1));
+                              new texture(image("earthmap.ppm"), 2.f, 1));
         pixar.basis = pixar.basis * translation(vec4(3.5, -3.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
                       rotation_y(M_PI / 3);
 
@@ -398,101 +398,110 @@ int main() {
 
                 break;
 
-            case 6:
+                /*case 6:
 
-                lights.push_back(new point_light(vec4(0,0,0,1), vec4(1,1,1,1), 1000));
-                finite_plane front(vec4(0, 0, -12, 1), 12, 12,
-                        new texture(image("../Textures/Ca_ship_front.ppm")));
+                    lights.push_back(new point_light(vec4(0,0,0,1), vec4(1,1,1,1), 1000));
+                    finite_plane front(vec4(0, 0, -12, 1), 12, 12,
+                            new texture(image("../Textures/dock1.ppm")));
+                    scene.hit_vector.push_back(&front);
+                    finite_plane top(vec4(0, 6, -6, 1), 12, 12,
+                            //new texture(image("../Textures/Ca_ship_top.ppm")));
+                            new light(vec4(1,1,1,0), 100));
+                    top.basis = top.basis * rotation_x(M_PI/2);
+                    scene.hit_vector.push_back(&top);
+
+                    finite_plane left(vec4(-6, 0, -12, 1), 12, 12,
+                            new texture(image("../Textures/Ca_ship_front2.ppm")));
+                    left.basis = left.basis * rotation_y(M_PI / 2);
+                    scene.hit_vector.push_back(&left);
+
+                    finite_plane right(vec4(6, 0, -12, 1), 12, 12,
+                            new texture(image("../Textures/Ca_ship_front2.ppm")));
+                    right.basis = right.basis * rotation_y(-M_PI / 2);
+                    scene.hit_vector.push_back(&right);
+
+                    finite_plane floor(vec4(0, -6, -12, 1), 12, 12,
+                            new texture(image("../Textures/lava.ppm"), 5, 5, 50));
+                    floor.basis = floor.basis * rotation_x(-M_PI/2);
+                    scene.hit_vector.push_back(&floor);
+
+                    //scene.hit_vector.push_back();
+
+
+
+                    //scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
+                    //                                      new phong(vec4(0.5, 0.2, 0.2, 0),
+                    //                                                vec4(0.2, 0.2, 0.2, 0), 10)));
+
+                    scene.hit_vector.push_back(new sphere(vec4(-3.5, -4, -10, 1), 2,
+                                                          new specular(vec4(0.9, 0.9, 0.9, 0))));
+
+                    scene.hit_vector.push_back(new sphere(vec4(-1, -4, -7, 1), 1.5,
+                                                          new glass(vec4(0.9, 0.9, 0.9, 0),
+                                                                    1.8)));
+                    //pixar.mat->Ks = vec4(0.2,0.2,0.2,0);
+                    //pixar.mat->alpha = 10;
+
+                    scene.hit_vector.push_back(&pixar);
+
+                    break;*/
+
+            case 7:
+                //sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
+                //                      new texture(vec4(0.9, 0, 0, 0), image("pixar_ball.ppm"), 2.f, 1, 6000));
+                //pixar.basis = pixar.basis * translation(vec4(-3.5, -2.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
+                //              rotation_y(-M_PI / 3);//* rotation_x(-M_PI/2)  ;
+                //scene.hit_vector.push_back(&pixar);
+                image building = image("building.ppm");
+                image grass(image("grass.ppm"));
+                image sunset(image("../Textures/sunset24.ppm"));
+                image building2(image("../Textures/building_dks-1.ppm"));
+                image road_tx(image("../Textures/road1.ppm"));
+
+                scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -120,
+                                                       new texture(building, 1, 2)));
+                //scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 30,
+                //                                       new texture(image("building.ppm"), 1.f, 2)));
+
+                finite_plane right_wall(vec4(30, 30, -135, 1), 30, 120,
+                                        new texture(building, 1, 2));
+                right_wall.basis = right_wall.basis * rotation_y(-M_PI / 2);
+                scene.hit_vector.push_back(&right_wall);
+                scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 60,
+                                                       new texture(building, 1.f, 2)));
+                scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -150,
+                                                       new texture(building, 1.f, 2)));
+                ////
+                scene.hit_vector.push_back(new xz_rect(-300, 300, -300, 300, -30,
+                                                       new texture(grass, 5, 5)));
+                //
+                scene.hit_vector.push_back(
+                        new xz_rect(30, 60, -150, -120, 90, new phong(vec4(0.2, 0.2, 0.2, 0), vec4(), 1)));
+                sphere sky(vec4(0, -0, 0, 1), 5000,
+                           new texture(sunset, 1.f, 2,
+                                       90));
+                //new light(vec4(1,1,1,1), 50));
+                sky.basis = sky.basis * rotation_x(-M_PI / 30) * rotation_y(M_PI / 2);
+                scene.hit_vector.push_back(&sky);
+                lights.push_back(new point_light(vec4(400, 100, -450, 1), vec4(1, 1, 1, 1), 20000000));
+
+                //new phong(vec4(.2,0.3,.9,0),
+                //        vec4(),0)));
+
+                finite_plane front(vec4(-30, 5, -40, 1), 30, 70,
+                                   new texture(building2));
                 scene.hit_vector.push_back(&front);
-                finite_plane top(vec4(0, 6, -6, 1), 12, 12,
-                        //new texture(image("../Textures/Ca_ship_top.ppm")));
-                        new light(vec4(1,1,1,0), 100));
-                top.basis = top.basis * rotation_x(M_PI/2);
-                scene.hit_vector.push_back(&top);
 
-                finite_plane left(vec4(-6, 0, -12, 1), 12, 12,
-                        new texture(image("../Textures/Ca_ship_front2.ppm")));
-                left.basis = left.basis * rotation_y(M_PI / 2);
-                scene.hit_vector.push_back(&left);
-
-                finite_plane right(vec4(6, 0, -12, 1), 12, 12,
-                        new texture(image("../Textures/Ca_ship_front2.ppm")));
-                right.basis = right.basis * rotation_y(-M_PI / 2);
+                finite_plane right(vec4(-15, 5, -55, 1), 30, 70,
+                                   new texture(building2));
+                right.basis = right.basis * rotation_y(M_PI / 2);
                 scene.hit_vector.push_back(&right);
 
-                finite_plane floor(vec4(0, -6, -12, 1), 12, 12,
-                        new texture(image("../Textures/lava.ppm"), 5, 5, 50));
-                floor.basis = floor.basis * rotation_x(-M_PI/2);
-                scene.hit_vector.push_back(&floor);
-
-                //scene.hit_vector.push_back();
-
-
-
-                //scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
-                //                                      new phong(vec4(0.5, 0.2, 0.2, 0),
-                //                                                vec4(0.2, 0.2, 0.2, 0), 10)));
-
-                scene.hit_vector.push_back(new sphere(vec4(-3.5, -4, -10, 1), 2,
-                                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
-
-                scene.hit_vector.push_back(new sphere(vec4(-1, -4, -7, 1), 1.5,
-                                                      new glass(vec4(0.9, 0.9, 0.9, 0),
-                                                                1.8)));
-                //pixar.mat->Ks = vec4(0.2,0.2,0.2,0);
-                //pixar.mat->alpha = 10;
-
-                scene.hit_vector.push_back(&pixar);
-
+                finite_plane road(vec4(5, -29.9, -150, 1), 30, 300,
+                                  new texture(road_tx, 1, 17, 20));
+                road.basis = road.basis * rotation_x(-M_PI / 2);
+                scene.hit_vector.push_back(&road);
                 break;
-
-                /*case 7:
-                    //sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
-                    //                      new texture(vec4(0.9, 0, 0, 0), image("pixar_ball.ppm"), 2.f, 1, 6000));
-                    //pixar.basis = pixar.basis * translation(vec4(-3.5, -2.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
-                    //              rotation_y(-M_PI / 3);//* rotation_x(-M_PI/2)  ;
-                    //scene.hit_vector.push_back(&pixar);
-
-
-                    scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -120,
-                                                           new texture(image("building.ppm"), 1.f, 2)));
-                    //scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 30,
-                    //                                       new texture(image("building.ppm"), 1.f, 2)));
-
-                    finite_plane right_wall(vec4(30, 30, -135, 1), 30, 120,
-                                            new texture(image("building.ppm"), 1, 1));
-                    right_wall.basis = right_wall.basis * rotation_y(-M_PI / 2);
-                    scene.hit_vector.push_back(&right_wall);
-                    scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 60,
-                                                           new texture(image("building.ppm"), 1.f, 2)));
-                    scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -150,
-                                                           new texture(image("building.ppm"), 1.f, 2)));
-    ////
-                    scene.hit_vector.push_back(new xz_rect(-300, 300, -300, 300, -30,
-                                                           new texture(image("grass.ppm"), 10.f, 20)));
-    //
-                    scene.hit_vector.push_back(
-                            new xz_rect(30, 60, -150, -120, 90, new phong(vec4(0.2, 0.2, 0.2, 0), vec4(), 1)));
-                    sphere sky(vec4(0, -0, 0, 1), 5000,
-                               new texture(image("../Textures/sunset24.ppm"), 1.f, 2,
-                                           90));
-                    //new light(vec4(1,1,1,1), 50));
-                    sky.basis = sky.basis * rotation_x(-M_PI / 35) * rotation_y(M_PI / 2);
-                    scene.hit_vector.push_back(&sky);
-                    lights.push_back(new point_light(vec4(400, 100, -450, 1), vec4(1, 1, 1, 1), 20000000));
-
-                    //new phong(vec4(.2,0.3,.9,0),
-                    //        vec4(),0)));
-
-                    finite_plane front(vec4(-25, 0, -40, 1), 20, 60,
-                                       new texture(image("../Textures/building_dks-1.ppm")));
-                    scene.hit_vector.push_back(&front);
-
-                    finite_plane road(vec4(5, -29.9, -250, 1), 30, 500,
-                                      new texture(image("../Textures/road2.ppm"), 1, 17, 20));
-                    road.basis = road.basis * rotation_x(-M_PI / 2);
-                    scene.hit_vector.push_back(&road);
-                    break;*/
         }
 
 
