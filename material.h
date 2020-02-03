@@ -274,14 +274,13 @@ vec4 phong_BRDF(hit_record record, vec4 wo, vec4 wi, vec4 luminance) {
     wo = normalize(wo);
     wi = normalize(wi);
     vec4 reflect = normalize(wo - 2 * normalize(record.normal) * dot(normalize(wo), normalize(record.normal)));
-    vec4 Kd = record.mat->albedo(record);
+    vec4 albedo = record.mat->albedo(record);
     vec4 Ks = record.mat->Ks;
-    //std::cout << Kd << std::endl;
+    vec4 Kd = record.mat->Kd;
     float alpha = record.mat->alpha;
     vec4 sp = (Ks * ((alpha + 2) / (2)));
     float pw = std::pow(std::max(dot(wi, normalize(record.normal)), (float) 0), alpha);
-    return (1 / (max(Kd) + max(Ks))) * luminance * (Kd +
-                                                    ((Ks * ((alpha + 2) / (2))) *
+    return (1 / (max(Kd) + max(Ks))) * luminance * (albedo + ((Ks * ((alpha + 2) / (2))) *
                                                      std::pow(std::abs(dot(wi, reflect)), alpha)));
 
 }
@@ -374,7 +373,7 @@ public:
         int i2 = i1 + 1;
         float variacion_i = i_real - (float) i1;
 
-        float j_real = 1 - resto_v / (1 / rep_y) * (float) ny - 0.001;
+        float j_real = (1 - resto_v / (1 / rep_y)) * (float) ny - 0.001;
         int j1 = std::floor(j_real);
         int j2 = j1 + 1;
         float variacion_j = j_real - (float) j1;
@@ -382,11 +381,9 @@ public:
 
         float cr = img.color_resolution;
 
-
+        vec4 color_total;
         if (!(i1 < 0) && !(j1 < 0) && !(i2 >= nx) && !(j2 >= ny)) {
-            float r = img.pixels[i1 + nx * j1][0] / img.color_resolution;
-            float g = img.pixels[i1 + nx * j1][1] / img.color_resolution;
-            float b = img.pixels[i1 + nx * j1][2] / img.color_resolution;
+
 
             std::array<float, 3> p1 = img.pixels[i1 + nx * j1];
             std::array<float, 3> p2 = img.pixels[i2 + nx * j1];
@@ -397,10 +394,10 @@ public:
             vec4 p21(p2[0] / cr, p2[1] / cr, p2[2] / cr, 0);
             vec4 p22(p4[0] / cr, p4[1] / cr, p4[2] / cr, 0);
 
-            vec4 color_total = p11 * (1 - variacion_i) * (1 - variacion_j) +
-                               p12 * (1 - variacion_i) * (variacion_j) +
-                               p21 * (variacion_i) * (1 - variacion_j) +
-                               p22 * (variacion_i) * variacion_j;
+            color_total = p11 * (1 - variacion_i) * (1 - variacion_j) +
+                          p12 * (1 - variacion_i) * (variacion_j) +
+                          p21 * (variacion_i) * (1 - variacion_j) +
+                          p22 * (variacion_i) * variacion_j;
 
 
 
@@ -411,20 +408,31 @@ public:
             if (color_total.g() <= 0.001) color_total = color_total + vec4(0, 0.01, 0, 0);
             if (color_total.b() <= 0.001) color_total = color_total + vec4(0, 0, 0.01, 0);
 
-            if (rec.mat->isLight) {
-                //return vec4(r, g, b, 0) * intensity;
-                return vec4(r, g, b, 0) * intensity;
-            } else {
-                //return vec4(r, g, b, 0) * max(Kd);
-                return vec4(r, g, b, 0) * max(Kd);
-            }
+
+        } else if (!(i1 < 0) && !(j1 < 0)) {
+
+            //std::cout << "!i1 < 0: " << !(i1 < 0)
+            //          << " !j1 < 0: " << !(j1 < 0)
+            //          << " !i2 >= 0: " << !(i2 >= nx)
+            //          << " !j2 >= 0: " << !(j2 >= ny)
+            //          << std::endl;
+
+            float r = img.pixels[i1 + nx * j1][0] / img.color_resolution;
+            float g = img.pixels[i1 + nx * j1][1] / img.color_resolution;
+            float b = img.pixels[i1 + nx * j1][2] / img.color_resolution;
+            if (r <= 0.001) r = 0.001;
+            if (g <= 0.001) g = 0.001;
+            if (b <= 0.001) b = 0.001;
+            color_total = vec4(r, g, b, 0.00);
         } else {
-            std::cout << "!i1 < 0: " << !(i1 < 0)
-                      << " !j1 < 0: " << !(j1 < 0)
-                      << " !i2 >= 0: " << !(i2 >= nx)
-                      << " !j2 >= 0: " << !(j2 >= ny)
-                      << std::endl;
-            return vec4(0.91, 0.01, 0.01, 0.00);
+            return vec4(0.01, 0.01, 0.01, 0);
+        }
+        if (rec.mat->isLight) {
+            //return vec4(r, g, b, 0) * intensity;
+            return color_total * intensity;
+        } else {
+            //return vec4(r, g, b, 0) * max(Kd);
+            return color_total;
         }
     }
 };

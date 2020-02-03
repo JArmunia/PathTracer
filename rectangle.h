@@ -116,7 +116,7 @@ bool yz_rect::hit(const ray &r, float t_min, float t_max, hit_record &rec)  {
     return true;
 }
 
-class box : public hitable {
+/*class box : public hitable {
 public:
     xy_rect front, back;
     yz_rect right, left;
@@ -146,4 +146,4 @@ public:
 
 bool box::hit(const ray &r, float t_min, float t_max, hit_record &rec)  {
     return planes.hit(r, t_min, t_max, rec);
-}
+}*/

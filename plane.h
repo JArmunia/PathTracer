@@ -53,16 +53,16 @@ bool plane::hit(const ray &r, float t_min, float t_max, hit_record &rec) {
 }
 
 
-class finite_plane : public hitable  {
-    vec4 normal = vec4(0,0,1,0);
-    vec4 center = vec4(0,0,0,1);
+class finite_plane : public hitable {
+    vec4 normal = vec4(0, 0, 1, 0);
+    vec4 center = vec4(0, 0, 0, 1);
     float size_u;
     float size_v;
 public:
     mat4 basis = identity();
     material *mat;
 
-    finite_plane(vec4 center, float size_u, float size_v, material *mat)   {
+    finite_plane(vec4 center, float size_u, float size_v, material *mat) {
         this->size_u = size_u;
         this->size_v = size_v;
         basis = basis * translation(center);
@@ -95,8 +95,8 @@ bool finite_plane::hit(const ray &r, float t_min, float t_max, hit_record &rec) 
 
                 rec.t = temp;
                 rec.p = basis * intersection_point;
-                rec.u = 0.5 + (intersection_point.x()/ size_u);
-                rec.v = 0.5 + (intersection_point.y()/size_v);
+                rec.u = 0.5 + (intersection_point.x() / size_u);
+                rec.v = 0.5 + (intersection_point.y() / size_v);
 
 
                 rec.mat = mat;
