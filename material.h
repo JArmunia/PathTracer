@@ -60,6 +60,8 @@ vec4 random_in_unit_sphere() {
 }
 
 class material {
+protected:
+    vec4 color = vec4();
 public:
     vec4 Kd = vec4();
     vec4 Ks = vec4();
@@ -71,11 +73,15 @@ public:
 
     bool isLight = false;
     float intensity = 0;
-    vec4 color = vec4();
+
 
     material() = default;;
 
     virtual vec4 albedo(hit_record rec) = 0;
+
+    virtual vec4 getLight(hit_record rec) {
+        return vec4();
+    };
 };
 
 
@@ -131,12 +137,16 @@ class light : public material {
 public :
     light(vec4 color, float intensity) {
         this->isLight = true;
-        this->color = intensity * color;
+        this->color = color;
         this->intensity = intensity;
     }
 
     vec4 albedo(hit_record rec) override {
         return vec4();
+    }
+
+    vec4 getLight(hit_record rec) {
+        return intensity * color;
     }
 };
 
@@ -311,45 +321,74 @@ public:
     int nx, ny;
     float rep_x = 1, rep_y = 1;
 
-    texture(vec4 kd, image i, float repetitions_x, float repetitions_y) : img(i) {
+
+    texture( image i, float repetitions_x, float repetitions_y) : img(i) {
         img = i;
-        Kd = kd;
+        Kd = vec4(0.9,0.9,0.9,0);
         nx = i.resolution[0];
         ny = i.resolution[1];
         rep_x = repetitions_x;
         rep_y = repetitions_y;
     }
 
-    texture(vec4 kd, image i) : img(i) {
+    texture( image i, float repetitions_x, float repetitions_y,  float intensity) : img(i) {
         img = i;
-        Kd = kd;
+        Kd = vec4(0.9,0.9,0.9,0);
         nx = i.resolution[0];
         ny = i.resolution[1];
+        rep_x = repetitions_x;
+        rep_y = repetitions_y;
+        this->isLight = true;
+        this->intensity = intensity;
+    }
+
+    texture( image i) : img(i) {
+        img = i;
+        Kd = vec4(0.9,0.9,0.9,0);
+        nx = i.resolution[0];
+        ny = i.resolution[1];
+    }
+
+    texture( image i, float intensity) : img(i) {
+        img = i;
+        Kd = vec4(0.9,0.9,0.9,0);
+        nx = i.resolution[0];
+        ny = i.resolution[1];
+        this->isLight = true;
+        this->intensity = intensity;
     }
 
     vec4 albedo(hit_record rec) override {
         //int i = rec.u * (float) nx;
         //int j = (1 - rec.v) * (float) ny - 0.001;
 
-        int n = rec.u / (1/rep_x);
-        float resto_u = rec.u - n * (1/rep_x);
-        n = rec.v / (1/rep_y);
-        float resto_v = rec.v - n * (1/rep_y);
+        int n = rec.u / (1 / rep_x);
+        float resto_u = rec.u - n * (1 / rep_x);
+        n = rec.v / (1 / rep_y);
+        float resto_v = rec.v - n * (1 / rep_y);
 
-        int i = resto_u/ (1/rep_x) * (float) nx;
-        int j = (1 - resto_v / (1/rep_y)) * (float) ny - 0.001;
-        //if (i < 0) i = 0;
-        //if (j < 0) j = 0;
-        //if (i > nx - 1) i = nx - 1;
-        //if (j > ny - 1) j = ny - 1;
+        int i = resto_u / (1 / rep_x) * (float) nx;
+        int j = (1 - resto_v / (1 / rep_y)) * (float) ny - 0.001;
+
         if (!(i < 0) && !(j < 0) && !(i >= nx) && !(j >= ny)) {
             float r = img.pixels[i + nx * j][0] / img.color_resolution;
             float g = img.pixels[i + nx * j][1] / img.color_resolution;
             float b = img.pixels[i + nx * j][2] / img.color_resolution;
-            return vec4(r, g, b, 0) * max(Kd);
+
+            if (r <= 0.001) r = 0.001;
+            if (g <= 0.001) g = 0.001;
+            if (b <= 0.001) b = 0.001;
+            if (rec.mat->isLight) {
+                return vec4(r, g, b, 0) * intensity;
+            } else {
+                return vec4(r, g, b, 0) * max(Kd);
+            }
         } else {
             return vec4(0.9, 0.00, 0.00, 0.00);
         }
+    }
+    vec4 getLight(hit_record rec) override {
+        return albedo(rec);
     }
 };
 

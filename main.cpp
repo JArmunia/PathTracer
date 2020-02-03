@@ -12,15 +12,15 @@
 
 
 struct options {
-    int width = 600;
-    int height = 700;
+    int width = 450;
+    int height = 500;
     float h_fov = 120;
 
-    int rays_per_pixel = 3000;
+    int rays_per_pixel = 20;
     float shadow_bias = 10e-4;
     float intersection_bias = 10e-4;
     int cores = std::thread::hardware_concurrency();
-    int scene = 2;
+    int scene = 6;
 
 
 } opt;
@@ -55,7 +55,7 @@ vec4 color(ray r, hitable_list world, const std::vector<point_light *> &lights, 
             }
         }
         if (rec.mat->isLight)
-            return rec.mat->color;
+            return rec.mat->getLight(rec);
         vec4 next_direction;
         vec4 point;
         if (event != ABSORTION) {
@@ -143,6 +143,17 @@ int main() {
         ///// SPHERES ///////////////////////////////////////////////////////////////////////////////////////
         /////////////////////////////////////////////////////////////////////////////////////////////////////
 
+        vec4 white = vec4(.85, .85, .85, 0);
+        vec4 red = vec4(.85, .085, .085, 0);
+        vec4 green = vec4(.085, .85, .085, 0);
+        vec4 orange = vec4(.85, .6, .02, 0);
+        vec4 blue = vec4(.085, .085, .85, 0);
+
+        sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
+                              new texture(image("pixar_ball.ppm"), 2.f, 1));
+        pixar.basis = pixar.basis * translation(vec4(3.5, -3.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
+                      rotation_y(M_PI / 3);
+
         switch (opt.scene) {
             case 1:
                 //lights.push_back(new point_light(vec4(0, 2, -4, 1),
@@ -165,24 +176,22 @@ int main() {
                                                                 vec4(0., 0, 0., 0),
                                                                 15)));
 
-                //sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
-                //                      new texture(vec4(0.9, 0, 0, 0), image("pixar_ball.ppm"), 2, 1));
-                //pixar.basis = pixar.basis * translation(vec4(-3.5, -2.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
-                //              rotation_y(-M_PI / 3);//* rotation_x(-M_PI/2)  ;
-                //scene.hit_vector.push_back(&pixar);
 
                 scene.hit_vector.push_back(new plane(vec4(0, 4, 0, 1), vec4(0, -1, 0, 0),
-                                                     new light(vec4(1, 1, 1, 0), 10000))); //Superior
-                // new phong(vec4(0.4, 0.4, 0.4, 0), vec4(), 0)));
+                        //new light(vec4(1, 1, 1, 0), 10000))); //Superior
+                                                     new phong(vec4(0.4, 0.4, 0.4, 0), vec4(), 0)));
 
                 scene.hit_vector.push_back(new plane(vec4(0, -4, 0, 1), vec4(0, 1, 0, 0),
                                                      new phong(vec4(0.7, 0.7, 0.7, 0),
                                                                vec4(),
                                                                100))); //Inferior
-                scene.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
-                                                     new phong(vec4(0.7, 0.7, 0.7, 0),
-                                                               vec4(),
-                                                               0))); //Frontal
+                //scene.hit_vector.push_back(new plane(vec4(0, 0, -10, 1), vec4(0, 0, 1, 0),
+                //                                     new phong(vec4(0.7, 0.7, 0.7, 0),
+                //                                               vec4(),
+                //                                               0))); //Frontal
+
+                scene.hit_vector.push_back(new finite_plane(vec4(0, 0, -10, 1), 10, 8,
+                                                            new texture(image("../Textures/moon.ppm"), 6000)));
                 //new specular(vec4(.9, .9, .9, 0))));
                 scene.hit_vector.push_back(new plane(vec4(5, 0, 0, 1), vec4(-1, 0, 0, 0),
                         //new phong(vec4(0.1, 0.4, 0.1, 0),
@@ -228,24 +237,28 @@ int main() {
                                                                vec4(0., 0, 0, 0),
                                                                0))); //Trasera
 
-                scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
-                                                      new phong(vec4(0.5, 0.2, 0.2, 0),
-                                                                vec4(0.2, 0.2, 0.2, 0), 10)));
+                //scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
+                //                                      new phong(vec4(0.5, 0.2, 0.2, 0),
+                //                                                vec4(0.2, 0.2, 0.2, 0), 10)));
 
-                scene.hit_vector.push_back(new sphere(vec4(-3.5, -4, -10, 1), 2,
+                scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
                                                       new specular(vec4(0.9, 0.9, 0.9, 0))));
 
                 scene.hit_vector.push_back(new sphere(vec4(-1, -4, -7, 1), 1.5,
                                                       new glass(vec4(0.9, 0.9, 0.9, 0),
                                                                 1.8)));
+                //pixar.mat->Ks = vec4(0.2,0.2,0.2,0);
+                //pixar.mat->alpha = 10;
+
+                scene.hit_vector.push_back(&pixar);
 
                 break;
             case 3 :
 
 
                 scene.hit_vector.push_back(new plane(vec4(0, 6, 0, 1), vec4(0, -1, 0, 0),
-                        new light(vec4(1, 1, 1, 0), 10000))); //Superior
-                                                     //new phong(vec4(0.4, 0.4, 0.4, 0), vec4(), 0)));
+                                                     new light(vec4(1, 1, 1, 0), 10000))); //Superior
+                //new phong(vec4(0.4, 0.4, 0.4, 0), vec4(), 0)));
 
                 scene.hit_vector.push_back(new plane(vec4(0, -6, 0, 1), vec4(0, 1, 0, 0),
                                                      new phong(vec4(0.7, 0.7, 0.7, 0),
@@ -283,28 +296,206 @@ int main() {
                                                       new glass(vec4(0.9, 0.9, 0.9, 0),
                                                                 1.8)));
 
+
                 break;
+
+            case 4 :
+                //BSDF* white = new Lambertian(w, Vector3(.85, .85, .85));
+                //BSDF* red = new Lambertian(w, Vector3(.85, .085, .085));
+                //BSDF* green = new Lambertian(w, Vector3(.085, .85, .085));
+                //BSDF* orange = new Lambertian(w, Vector3(.85, .6, .02));
+                //BSDF* blue = new Lambertian(w, Vector3(.085, .085, .85));
+
+                opt.h_fov = 90;
+
+                lights.push_back(new point_light(vec4(0, 0.9, -3, 1),
+                                                 vec4(1, 1, 1, 0), 500000));
+
+                scene.hit_vector.push_back(new plane(vec4(0, 1, 0, 1), vec4(0, -1, 0, 0),
+                        //new light(white, 10000))); //Superior
+                                                     new phong(white, vec4(), 0)));
+                scene.hit_vector.push_back(new plane(vec4(0, -1, 0, 1), vec4(0, 1, 0, 0),
+                                                     new phong(white,
+                                                               vec4(),
+                                                               100))); //Inferior
+
+                scene.hit_vector.push_back(new plane(vec4(0, 0, -4, 1), vec4(0, 0, 1, 0),
+                                                     new phong(white,
+                                                               vec4(),
+                                                               0))); //Frontal
+
+                scene.hit_vector.push_back(new plane(vec4(1, 0, 0, 1), vec4(-1, 0, 0, 0),
+                                                     new phong(green,
+                                                               vec4(),
+                                                               10))); //Derecho
+
+                scene.hit_vector.push_back(new plane(vec4(-1, 0, 0, 1), vec4(1, 0, 0, 0),
+                                                     new phong(red,
+                                                               vec4(0., 0, 0, 0),
+                                                               0)));//Izquierdo
+
+
+                scene.hit_vector.push_back(new sphere(vec4(0.5, -0.7, -2.5, 1), 0.3,
+                                                      new phong(white,
+                                                                vec4(0., 0, 0, 0),
+                                                                0)));
+                scene.hit_vector.push_back(new sphere(vec4(-0.5, -0.5, -1.5, 1), 0.3,
+                                                      new phong(red,
+                                                                vec4(0., 0, 0, 0),
+                                                                0)));
+                scene.hit_vector.push_back(new sphere(vec4(0, -0.7, -3, 1), 0.3,
+                                                      new phong(white,
+                                                                vec4(0., 0, 0, 0),
+                                                                0)));
+
+                break;
+
+            case 5 :
+                //BSDF* white = new Lambertian(w, Vector3(.85, .85, .85));
+                //BSDF* red = new Lambertian(w, Vector3(.85, .085, .085));
+                //BSDF* green = new Lambertian(w, Vector3(.085, .85, .085));
+                //BSDF* orange = new Lambertian(w, Vector3(.85, .6, .02));
+                //BSDF* blue = new Lambertian(w, Vector3(.085, .085, .85));
+
+
+                lights.push_back(new point_light(vec4(0, 0.9, -3, 1),
+                                                 vec4(1, 1, 1, 0), 3000));
+
+                scene.hit_vector.push_back(new plane(vec4(0, 1, 0, 1), vec4(0, -1, 0, 0),
+                        //new light(white, 10000))); //Superior
+                                                     new phong(white, vec4(), 0)));
+                scene.hit_vector.push_back(new plane(vec4(0, -1, 0, 1), vec4(0, 1, 0, 0),
+                                                     new phong(white,
+                                                               vec4(),
+                                                               100))); //Inferior
+
+                scene.hit_vector.push_back(new plane(vec4(0, 0, -4, 1), vec4(0, 0, 1, 0),
+                                                     new phong(white,
+                                                               vec4(),
+                                                               0))); //Frontal
+
+                scene.hit_vector.push_back(new plane(vec4(1, 0, 0, 1), vec4(-1, 0, 0, 0),
+                                                     new phong(green,
+                                                               vec4(),
+                                                               10))); //Derecho
+
+                scene.hit_vector.push_back(new plane(vec4(-1, 0, 0, 1), vec4(1, 0, 0, 0),
+                                                     new phong(red,
+                                                               vec4(0., 0, 0, 0),
+                                                               0)));//Izquierdo
+
+
+                scene.hit_vector.push_back(new sphere(vec4(0.5, -0.7, -2.5, 1), 0.3,
+                                                      new glass(vec4(0.9, 0.9, 0.9, 0), 1.8)));
+
+                scene.hit_vector.push_back(new sphere(vec4(-0.5, -0.5, -1.5, 1), 0.3,
+                                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+
+                scene.hit_vector.push_back(new sphere(vec4(0, -0.7, -3, 1), 0.3,
+                                                      new phong(vec4(0.6, 0.2, 0.2, 0),
+                                                                vec4(0.2, 0.2, 0.2, 0),
+                                                                10)));
+
+                break;
+
+            case 6:
+
+                lights.push_back(new point_light(vec4(0,0,0,1), vec4(1,1,1,1), 1000));
+                finite_plane front(vec4(0, 0, -12, 1), 12, 12,
+                        new texture(image("../Textures/Ca_ship_front.ppm")));
+                scene.hit_vector.push_back(&front);
+                finite_plane top(vec4(0, 6, -6, 1), 12, 12,
+                        //new texture(image("../Textures/Ca_ship_top.ppm")));
+                        new light(vec4(1,1,1,0), 100));
+                top.basis = top.basis * rotation_x(M_PI/2);
+                scene.hit_vector.push_back(&top);
+
+                finite_plane left(vec4(-6, 0, -12, 1), 12, 12,
+                        new texture(image("../Textures/Ca_ship_front2.ppm")));
+                left.basis = left.basis * rotation_y(M_PI / 2);
+                scene.hit_vector.push_back(&left);
+
+                finite_plane right(vec4(6, 0, -12, 1), 12, 12,
+                        new texture(image("../Textures/Ca_ship_front2.ppm")));
+                right.basis = right.basis * rotation_y(-M_PI / 2);
+                scene.hit_vector.push_back(&right);
+
+                finite_plane floor(vec4(0, -6, -12, 1), 12, 12,
+                        new texture(image("../Textures/lava.ppm"), 5, 5, 50));
+                floor.basis = floor.basis * rotation_x(-M_PI/2);
+                scene.hit_vector.push_back(&floor);
+
+                //scene.hit_vector.push_back();
+
+
+
+                //scene.hit_vector.push_back(new sphere(vec4(3.5, -4, -10, 1), 2,
+                //                                      new phong(vec4(0.5, 0.2, 0.2, 0),
+                //                                                vec4(0.2, 0.2, 0.2, 0), 10)));
+
+                scene.hit_vector.push_back(new sphere(vec4(-3.5, -4, -10, 1), 2,
+                                                      new specular(vec4(0.9, 0.9, 0.9, 0))));
+
+                scene.hit_vector.push_back(new sphere(vec4(-1, -4, -7, 1), 1.5,
+                                                      new glass(vec4(0.9, 0.9, 0.9, 0),
+                                                                1.8)));
+                //pixar.mat->Ks = vec4(0.2,0.2,0.2,0);
+                //pixar.mat->alpha = 10;
+
+                scene.hit_vector.push_back(&pixar);
+
+                break;
+
+                /*case 7:
+                    //sphere pixar = sphere(vec4(0, 0, 0, 1), 1.5,
+                    //                      new texture(vec4(0.9, 0, 0, 0), image("pixar_ball.ppm"), 2.f, 1, 6000));
+                    //pixar.basis = pixar.basis * translation(vec4(-3.5, -2.5, -8.5, 0)) * rotation_x(-M_PI / 5) *
+                    //              rotation_y(-M_PI / 3);//* rotation_x(-M_PI/2)  ;
+                    //scene.hit_vector.push_back(&pixar);
+
+
+                    scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -120,
+                                                           new texture(image("building.ppm"), 1.f, 2)));
+                    //scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 30,
+                    //                                       new texture(image("building.ppm"), 1.f, 2)));
+
+                    finite_plane right_wall(vec4(30, 30, -135, 1), 30, 120,
+                                            new texture(image("building.ppm"), 1, 1));
+                    right_wall.basis = right_wall.basis * rotation_y(-M_PI / 2);
+                    scene.hit_vector.push_back(&right_wall);
+                    scene.hit_vector.push_back(new yz_rect(-30, 90, -150, -120, 60,
+                                                           new texture(image("building.ppm"), 1.f, 2)));
+                    scene.hit_vector.push_back(new xy_rect(30, 60, -30, 90, -150,
+                                                           new texture(image("building.ppm"), 1.f, 2)));
+    ////
+                    scene.hit_vector.push_back(new xz_rect(-300, 300, -300, 300, -30,
+                                                           new texture(image("grass.ppm"), 10.f, 20)));
+    //
+                    scene.hit_vector.push_back(
+                            new xz_rect(30, 60, -150, -120, 90, new phong(vec4(0.2, 0.2, 0.2, 0), vec4(), 1)));
+                    sphere sky(vec4(0, -0, 0, 1), 5000,
+                               new texture(image("../Textures/sunset24.ppm"), 1.f, 2,
+                                           90));
+                    //new light(vec4(1,1,1,1), 50));
+                    sky.basis = sky.basis * rotation_x(-M_PI / 35) * rotation_y(M_PI / 2);
+                    scene.hit_vector.push_back(&sky);
+                    lights.push_back(new point_light(vec4(400, 100, -450, 1), vec4(1, 1, 1, 1), 20000000));
+
+                    //new phong(vec4(.2,0.3,.9,0),
+                    //        vec4(),0)));
+
+                    finite_plane front(vec4(-25, 0, -40, 1), 20, 60,
+                                       new texture(image("../Textures/building_dks-1.ppm")));
+                    scene.hit_vector.push_back(&front);
+
+                    finite_plane road(vec4(5, -29.9, -250, 1), 30, 500,
+                                      new texture(image("../Textures/road2.ppm"), 1, 17, 20));
+                    road.basis = road.basis * rotation_x(-M_PI / 2);
+                    scene.hit_vector.push_back(&road);
+                    break;*/
         }
 
 
-
-
-
-        //scene.hit_vector.push_back(new xy_rect(30,60,-30, 90, -120,
-        //                                       new texture(vec4(0.9, 0, 0, 0), image("building.ppm"), 2, 4)));
-        //scene.hit_vector.push_back(new yz_rect(-30,90,-150, -120, 30,
-        //                                       new texture(vec4(0.9, 0, 0, 0), image("building.ppm"), 2, 4)));
-        //scene.hit_vector.push_back(new yz_rect(-30,90,-150, -120, 60,
-        //                                       new texture(vec4(0.9, 0, 0, 0), image("building.ppm"), 2, 4)));
-        //scene.hit_vector.push_back(new xy_rect(30,60,-30, 90, -150,
-        //                                       new texture(vec4(0.9, 0, 0, 0), image("building.ppm"), 2, 4)));
-//
-        //scene.hit_vector.push_back(new xz_rect(-300,300,-300, 300, -30,
-        //                                       new texture(vec4(0.9, 0, 0, 0), image("grass.ppm"), 10, 20)));
-//
-        //scene.hit_vector.push_back(new sphere(vec4(0,0,0,1), 500,
-        //        new phong(vec4(.2,0.3,.9,0),
-        //                vec4(),0)));
         //finite_plane fp = finite_plane(vec4(0, 0, -20, 1), 20, 40,
         //                               new texture(vec4(0.9, 0.2, 0.3, 0), image("earthmap.ppm")));
         //fp.basis = fp.basis * rotation_y(-M_PI / 4);
